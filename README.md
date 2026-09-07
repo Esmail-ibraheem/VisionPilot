@@ -11,7 +11,7 @@ So conceptually:
 
 ```text
 
-OpenMotion
+OpenVision
 Cameras/Sensors → AI OS → Understand → Plan → Control Machine
        HARDWARE       SOFTWARE              HARDWARE
 ```
