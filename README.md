@@ -1,5 +1,6 @@
 # VisionPilot
 The Operating System of OpenVision (Physical AI Computer). 
+<img width="1448" height="1086" alt="image" src="https://github.com/user-attachments/assets/a8b89f8b-e46b-4e27-8cbe-663530030f71" />
 
 
 **1. OpenVision — software + hardware**
