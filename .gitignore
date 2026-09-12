@@ -1,4 +1,3 @@
 node_modules
 dist
-screenshots/*.png
-!screenshots/.gitkeep
+screenshots/probe*.png
