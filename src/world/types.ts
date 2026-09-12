@@ -36,37 +36,75 @@ export interface PedestrianState extends Pose2D {
   phase: number;
 }
 
-export interface LaneLine {
+export type MarkingKind = 'lane' | 'center' | 'edge' | 'stop';
+
+/** A painted line on the road: a polyline of world points, dashed or solid. */
+export interface Marking {
   id: string;
-  /** Lateral offset of the line (metres, world x at t = 0). */
-  x: number;
-  /** Forward range in which the line exists, relative to the ego at t = 0. */
-  zStart: number;
-  zEnd: number;
+  kind: MarkingKind;
+  points: Array<{ x: number; z: number }>;
   dashed: boolean;
+  /** Line width, metres. */
+  width: number;
+}
+
+/** Zebra crossing: centred at (x, z), stripes run along `heading` (the road direction). */
+export interface Crosswalk {
+  id: string;
+  x: number;
+  z: number;
+  heading: number;
+  /** extent across the road */
+  length: number;
+  /** extent along the road */
+  depth: number;
 }
 
 export interface LaneArrow {
   id: string;
   x: number;
   z: number;
+  heading: number;
 }
 
 export interface LaneGeometry {
-  lines: LaneLine[];
+  markings: Marking[];
+  crosswalks: Crosswalk[];
   arrows: LaneArrow[];
-  /** Length of one dash + gap, metres. Used by the renderer to tile markings seamlessly. */
+  /** Length of one dash + gap, metres. */
   dashPeriod: number;
   dashLength: number;
-  /** Line width, metres. */
-  width: number;
+}
+
+export type LightColor = 'red' | 'yellow' | 'green';
+
+export interface TrafficLightState {
+  id: string;
+  x: number;
+  z: number;
+  /** direction the lamps face */
+  heading: number;
+  state: LightColor;
+}
+
+export interface SignState {
+  id: string;
+  kind: 'stop';
+  x: number;
+  z: number;
+  heading: number;
+}
+
+export interface Props {
+  trafficLights: TrafficLightState[];
+  signs: SignState[];
 }
 
 export interface Trajectory {
   visible: boolean;
   /** Corridor half-width in metres. */
   halfWidth: number;
-  /** Corridor length ahead of the ego in metres. */
+  /** Corridor length ahead of the ego in metres (used when `route` has no points). */
   length: number;
 }
 
@@ -74,9 +112,16 @@ export interface WorldState {
   /** Simulation time in seconds since reset. */
   time: number;
   ego: EgoState;
+  /** Ego brake lights lit. */
+  egoBrake: boolean;
+  /** Posted limit for the road the ego is on (km/h). */
+  speedLimit: number;
   vehicles: VehicleState[];
   pedestrians: PedestrianState[];
   lanes: LaneGeometry;
+  props: Props;
+  /** Planned path ahead of the ego (world points), drawn as the blue corridor when visible. */
+  route: { points: Array<{ x: number; z: number }> };
   trajectory: Trajectory;
 }
 

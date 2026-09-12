@@ -44,23 +44,32 @@
 
       <!-- ─── map: faint roads and position marker ─── -->
       <svg class="map" viewBox="0 0 300 400" preserveAspectRatio="xMaxYMin meet">
-        <g class="road-outline" fill="none" stroke="#dedede" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M196 -10 C194 60 190 120 178 190 C168 250 160 320 158 420" stroke-width="12"/>
-          <path d="M60 40 L140 52 L300 62" stroke-width="7"/>
-          <path d="M20 132 L118 140" stroke-width="7"/>
-          <path d="M120 210 L300 205" stroke-width="7"/>
-          <path d="M0 300 L162 305 L300 295" stroke-width="7"/>
-          <path d="M240 60 L232 200" stroke-width="6"/>
-          <path d="M110 140 C120 200 118 260 100 400" stroke-width="7"/>
-        </g>
-        <g class="road" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M196 -10 C194 60 190 120 178 190 C168 250 160 320 158 420" stroke-width="9"/>
-          <path d="M60 40 L140 52 L300 62" stroke-width="4.5"/>
-          <path d="M20 132 L118 140" stroke-width="4.5"/>
-          <path d="M120 210 L300 205" stroke-width="4.5"/>
-          <path d="M0 300 L162 305 L300 295" stroke-width="4.5"/>
-          <path d="M240 60 L232 200" stroke-width="3.5"/>
-          <path d="M110 140 C120 200 118 260 100 400" stroke-width="4.5"/>
+        <defs>
+          <g id="map-tile">
+            <g class="road-outline" fill="none" stroke="#dedede" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M196 0 C194 60 190 120 178 190 C168 250 160 320 158 400" stroke-width="12"/>
+              <path d="M60 40 L140 52 L300 62" stroke-width="7"/>
+              <path d="M20 132 L118 140" stroke-width="7"/>
+              <path d="M120 210 L300 205" stroke-width="7"/>
+              <path d="M0 300 L162 305 L300 295" stroke-width="7"/>
+              <path d="M240 60 L232 200" stroke-width="6"/>
+              <path d="M110 140 C120 200 118 260 100 400" stroke-width="7"/>
+            </g>
+            <g class="road" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M196 0 C194 60 190 120 178 190 C168 250 160 320 158 400" stroke-width="9"/>
+              <path d="M60 40 L140 52 L300 62" stroke-width="4.5"/>
+              <path d="M20 132 L118 140" stroke-width="4.5"/>
+              <path d="M120 210 L300 205" stroke-width="4.5"/>
+              <path d="M0 300 L162 305 L300 295" stroke-width="4.5"/>
+              <path d="M240 60 L232 200" stroke-width="3.5"/>
+              <path d="M110 140 C120 200 118 260 100 400" stroke-width="4.5"/>
+            </g>
+          </g>
+        </defs>
+        <g class="roads">
+          <use href="#map-tile" y="-800"/>
+          <use href="#map-tile" y="-400"/>
+          <use href="#map-tile" y="0"/>
         </g>
         <path class="marker" d="M184 118 L193.5 138 L184 133 L174.5 138 Z" fill="#e0242f" stroke="#b21a24" stroke-width="0.8" stroke-linejoin="round"/>
       </svg>
@@ -142,8 +151,8 @@
     <aside id="dev-panel" class="dev-panel" hidden>
       <h2>Simulation</h2>
       <div class="dev-row">
-        <label><input type="radio" name="mode" value="reference" checked /> Reference (frozen)</label>
-        <label><input type="radio" name="mode" value="live" /> Live</label>
+        <label><input type="radio" name="mode" value="live" checked /> Live</label>
+        <label><input type="radio" name="mode" value="reference" /> Reference (frozen)</label>
       </div>
       <div class="dev-row">
         <button type="button" id="dev-pause">Pause</button>
@@ -154,7 +163,7 @@
         <input type="range" id="dev-speed" min="0.25" max="3" step="0.25" value="1" />
       </div>
       <div class="dev-row">
-        <label><input type="checkbox" id="dev-trajectory" /> Show planned-path corridor</label>
+        <label><input type="checkbox" id="dev-trajectory" checked /> Show planned-path corridor</label>
       </div>
       <h2>Camera</h2>
       <div class="dev-grid" id="dev-camera"></div>

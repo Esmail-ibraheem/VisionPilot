@@ -36,13 +36,23 @@ class App {
   private mediaProgress = 0.48;
 
   constructor() {
-    const requestedMode = (params.get('mode') === 'live' ? 'live' : 'reference') as SimMode;
-    this.sim = new Simulation({ mode: requestedMode, speedFactor: Number(params.get('speed')) || 1 });
+    const requestedMode = (params.get('mode') === 'reference' ? 'reference' : 'live') as SimMode;
+    this.sim = new Simulation({
+      mode: requestedMode,
+      speedFactor: Number(params.get('speed')) || 1,
+      liveCorridor: params.get('corridor') !== '0',
+    });
     if (requestedMode === 'live' && reducedMotion) {
       this.sim.paused = true;
       motionNote.hidden = false;
     }
     if (params.get('hud') === '0') hud.hidden = true;
+    // ?skip=<s>: deterministically pre-advance the live world (inspection / screenshots).
+    const skip = Number(params.get('skip'));
+    if (skip > 0 && this.sim.mode === 'live') {
+      const step = 1 / 30;
+      for (let t = 0; t < skip; t += step) this.sim.step(step);
+    }
     const probe = params.get('probe');
     if (probe) this.applyProbe(probe);
 
@@ -55,7 +65,7 @@ class App {
         this.syncPanel();
       },
       setTrajectory: (visible) => {
-        this.sim.state.trajectory.visible = visible;
+        this.sim.setCorridor(visible);
         this.syncPanel();
       },
       onRigChange: () => this.renderer?.applyRig(),
@@ -135,6 +145,7 @@ class App {
       }
       this.renderer.update(this.sim.state);
       this.renderer.render();
+      this.updateHud();
       this.frames++;
       if (now - this.fpsTime > 500) {
         this.fps = (this.frames * 1000) / (now - this.fpsTime);
@@ -200,7 +211,6 @@ class App {
   }
 
   private reset(): void {
-    this.sim.setMode('reference');
     this.sim.reset();
     this.sim.paused = false;
     this.mediaProgress = 0.48;
@@ -208,12 +218,38 @@ class App {
     this.syncPanel();
   }
 
+  private hudSpeed = document.querySelector('.speed') as HTMLElement;
+  private hudLimit = document.querySelector('.limit-sign') as HTMLElement;
+  private mapRoads = document.querySelector('.map .roads') as SVGGElement | null;
+  private lastShownSpeed = -1;
+  private lastShownLimit = -1;
+
+  /** Speed, posted limit and the scrolling mini-map follow the simulation. */
+  private updateHud(): void {
+    const s = this.sim.state;
+    const kph = Math.round(s.ego.speedKph);
+    if (kph !== this.lastShownSpeed) {
+      this.hudSpeed.textContent = String(kph);
+      this.lastShownSpeed = kph;
+    }
+    if (s.speedLimit !== this.lastShownLimit) {
+      this.hudLimit.textContent = String(s.speedLimit);
+      this.lastShownLimit = s.speedLimit;
+    }
+    if (this.mapRoads && this.sim.mode === 'live') {
+      // 1 map unit ≈ 2.4 m; the pattern repeats every 400 units so the scroll can wrap.
+      const travelled = this.sim.liveWorld?.egoS ?? 0;
+      const offset = (travelled / 2.4) % 400;
+      this.mapRoads.setAttribute('transform', `translate(0 ${offset.toFixed(1)})`);
+    }
+  }
+
   private syncPanel(): void {
     this.devPanel.sync({
       mode: this.sim.mode,
       paused: this.sim.paused,
       speed: this.sim.speedFactor,
-      trajectory: this.sim.state.trajectory.visible,
+      trajectory: this.sim.corridorVisible,
     });
     this.media.setPlaying(this.isPlaying() || (this.sim.mode === 'reference' && !this.sim.paused));
   }
@@ -241,7 +277,7 @@ class App {
         break;
       case 't':
       case 'T':
-        this.sim.state.trajectory.visible = !this.sim.state.trajectory.visible;
+        this.sim.setCorridor(!this.sim.corridorVisible);
         this.syncPanel();
         break;
       case '[':

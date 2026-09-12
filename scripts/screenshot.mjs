@@ -100,6 +100,11 @@ try {
       errorVisible: !document.getElementById('error')?.hidden,
     };
   });
+  if (args.eval) {
+    // Evaluate an expression in the page after the wait and print the JSON result (debug aid).
+    const result = await page.evaluate(args.eval);
+    console.log('eval: ' + JSON.stringify(result));
+  }
   if (args.sample) {
     // Sample rendered canvas pixels: --sample "x,y;x,y" (CSS pixels). Prints hex colours.
     const pts = args.sample.split(';').map((p) => p.split(',').map(Number));

@@ -60,16 +60,20 @@ export function createReferenceState(): WorldState {
       v('r8', 'sedan', 9.3, -15.4, -30, { parked: true, tint: 0.5 }),
     ],
     pedestrians: [p('ped1', 1.8, 17.3, 0)],
+    egoBrake: false,
+    speedLimit: 50,
     lanes: {
-      lines: [
-        { id: 'left', x: -LANE_WIDTH / 2, zStart: -80, zEnd: 400, dashed: true },
-        { id: 'right', x: LANE_WIDTH / 2, zStart: 9, zEnd: 400, dashed: true },
+      markings: [
+        { id: 'ref-left', kind: 'lane', dashed: true, width: 0.13, points: [{ x: -LANE_WIDTH / 2, z: -80 }, { x: -LANE_WIDTH / 2, z: 400 }] },
+        { id: 'ref-right', kind: 'lane', dashed: true, width: 0.13, points: [{ x: LANE_WIDTH / 2, z: 9 }, { x: LANE_WIDTH / 2, z: 400 }] },
       ],
-      arrows: [{ id: 'arrow1', x: -0.2, z: 11.2 }],
+      crosswalks: [],
+      arrows: [{ id: 'arrow1', x: -0.2, z: 11.2, heading: 0 }],
       dashPeriod: 6,
       dashLength: 4.4,
-      width: 0.13,
     },
+    props: { trafficLights: [], signs: [] },
+    route: { points: [] },
     trajectory: { visible: false, halfWidth: 1.1, length: 40 },
   };
 }

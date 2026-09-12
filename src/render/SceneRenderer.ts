@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import type { WorldState } from '../world/types';
 import { VehicleObject, PALETTE, disposeVehicleTemplates } from './vehicles/buildVehicle';
 import { PedestrianObject } from './pedestrian';
-import { LaneMarkings, createGround, createTrajectoryRibbon } from './ground';
+import { LaneMarkings, PathRibbon, createGround } from './ground';
+import { PropsRenderer } from './props';
 import { createGradientEnvironment } from './environment';
 import { toSceneHeading, toSceneX } from './frame';
 
@@ -48,7 +49,8 @@ export class SceneRenderer {
   private pedestrians = new Map<string, PedestrianObject>();
   private ego: VehicleObject;
   private lanes = new LaneMarkings();
-  private trajectory: THREE.Mesh;
+  private props = new PropsRenderer();
+  private ribbon = new PathRibbon();
   private fog: THREE.Fog;
   private envTexture: THREE.Texture;
   private width = 1;
@@ -88,8 +90,8 @@ export class SceneRenderer {
 
     this.scene.add(createGround(PALETTE.background));
     this.scene.add(this.lanes.group);
-    this.trajectory = createTrajectoryRibbon();
-    this.scene.add(this.trajectory);
+    this.scene.add(this.props.group);
+    this.scene.add(this.ribbon.mesh);
 
     this.ego = new VehicleObject('ego');
     this.scene.add(this.ego.group);
@@ -118,6 +120,7 @@ export class SceneRenderer {
     this.ego.group.position.set(egoX, 0, ego.z);
     this.ego.group.rotation.y = toSceneHeading(ego.heading);
     this.ego.group.visible = this.showEgo;
+    this.ego.setBrake(state.egoBrake);
 
     const seen = new Set<string>();
     for (const v of state.vehicles) {
@@ -161,20 +164,26 @@ export class SceneRenderer {
       }
     }
 
-    this.lanes.update(state.lanes, ego.z);
+    this.lanes.update(state.lanes);
+    this.props.update(state.props);
 
     const tr = state.trajectory;
-    this.trajectory.visible = tr.visible;
+    this.ribbon.mesh.visible = tr.visible;
     if (tr.visible) {
-      this.trajectory.position.set(egoX, 0.006, ego.z + 2.6 + tr.length / 2);
-      this.trajectory.scale.set(tr.halfWidth * 2, 1, tr.length);
+      const pts = state.route.points.length >= 2 ? state.route.points : straightAhead(ego, tr.length);
+      this.ribbon.update(pts, tr.halfWidth);
     }
 
-    // Camera follows the ego rigidly: elevated, far back, long lens.
+    // Camera follows the ego rigidly (position and heading): elevated, far back, long lens.
     const r = this.rig;
+    const h = toSceneHeading(ego.heading);
+    const dx = Math.sin(h);
+    const dz = Math.cos(h);
+    const rx = Math.cos(h);
+    const rz = -Math.sin(h);
     const lx = toSceneX(r.lateral);
-    this.camera.position.set(egoX + lx, r.height, ego.z - r.back);
-    this.camera.lookAt(egoX + lx, 0, ego.z + r.ahead);
+    this.camera.position.set(egoX - dx * r.back + rx * lx, r.height, ego.z - dz * r.back + rz * lx);
+    this.camera.lookAt(egoX + dx * r.ahead + rx * lx, 0, ego.z + dz * r.ahead + rz * lx);
   }
 
   render(): void {
@@ -196,4 +205,13 @@ export class SceneRenderer {
     disposeVehicleTemplates();
     this.renderer.dispose();
   }
+}
+
+/** Fallback corridor: straight ahead of the ego (world points). */
+function straightAhead(ego: { x: number; z: number; heading: number }, length: number): Array<{ x: number; z: number }> {
+  const pts: Array<{ x: number; z: number }> = [];
+  const dx = Math.sin(ego.heading);
+  const dz = Math.cos(ego.heading);
+  for (let d = 2.6; d <= 2.6 + length; d += 2) pts.push({ x: ego.x + dx * d, z: ego.z + dz * d });
+  return pts;
 }
