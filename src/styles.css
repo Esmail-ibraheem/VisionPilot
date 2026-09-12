@@ -632,6 +632,47 @@ body {
   }
 }
 
+/* ─── perception picture-in-picture ─── */
+.pip {
+  position: fixed;
+  left: calc(14 * var(--s));
+  top: calc(222 * var(--s));
+  width: calc(292 * var(--s));
+  height: calc(164 * var(--s));
+  border-radius: calc(6 * var(--s));
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 calc(2 * var(--s)) calc(10 * var(--s)) rgba(0, 0, 0, 0.18);
+  z-index: 5;
+}
+
+.pip-frame,
+.pip-frame > video,
+.pip-frame > canvas,
+.pip-boxes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+}
+
+.pip-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: calc(3 * var(--s)) calc(7 * var(--s));
+  font-size: calc(8.5 * var(--s));
+  font-weight: 600;
+  letter-spacing: calc(0.6 * var(--s));
+  color: rgba(255, 255, 255, 0.85);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
+}
+
 /* ─── developer panel ─── */
 .dev-toggle {
   position: fixed;

@@ -45,6 +45,8 @@ export class SceneRenderer {
   rig: CameraRig;
   /** Developer aid: hide the ego (used by the single-model probe view). */
   showEgo = true;
+  /** When set, the camera sits at the ego's windshield looking forward (synthetic front camera). */
+  dashcam: { height: number; forward: number } | null = null;
   private vehicles = new Map<string, VehicleObject>();
   private pedestrians = new Map<string, PedestrianObject>();
   private ego: VehicleObject;
@@ -181,6 +183,13 @@ export class SceneRenderer {
     const dz = Math.cos(h);
     const rx = Math.cos(h);
     const rz = -Math.sin(h);
+    if (this.dashcam) {
+      const px = egoX + dx * this.dashcam.forward;
+      const pz = ego.z + dz * this.dashcam.forward;
+      this.camera.position.set(px, this.dashcam.height, pz);
+      this.camera.lookAt(px + dx * 60, this.dashcam.height, pz + dz * 60);
+      return;
+    }
     const lx = toSceneX(r.lateral);
     this.camera.position.set(egoX - dx * r.back + rx * lx, r.height, ego.z - dz * r.back + rz * lx);
     this.camera.lookAt(egoX + dx * r.ahead + rx * lx, 0, ego.z + dz * r.ahead + rz * lx);

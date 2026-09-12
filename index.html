@@ -146,6 +146,13 @@
       </div>
     </div>
 
+    <!-- ─── perception picture-in-picture: the camera frame the neural net sees ─── -->
+    <div id="pip" class="pip" hidden>
+      <div class="pip-frame"></div>
+      <canvas class="pip-boxes"></canvas>
+      <div class="pip-label"><span id="pip-title">FRONT CAMERA</span><span id="pip-stats">loading model…</span></div>
+    </div>
+
     <!-- ─── developer panel (collapsed by default) ─── -->
     <button type="button" id="dev-toggle" class="dev-toggle" aria-label="Developer panel" title="Developer panel (D)">DEV</button>
     <aside id="dev-panel" class="dev-panel" hidden>
@@ -153,6 +160,7 @@
       <div class="dev-row">
         <label><input type="radio" name="mode" value="live" checked /> Live</label>
         <label><input type="radio" name="mode" value="reference" /> Reference (frozen)</label>
+        <label><input type="radio" name="mode" value="perception" /> Perception</label>
       </div>
       <div class="dev-row">
         <button type="button" id="dev-pause">Pause</button>
@@ -165,6 +173,17 @@
       <div class="dev-row">
         <label><input type="checkbox" id="dev-trajectory" checked /> Show planned-path corridor</label>
       </div>
+      <h2>Perception (camera → neural net → 3D)</h2>
+      <div class="dev-row">
+        <label><input type="radio" name="source" value="synthetic" checked /> Synthetic front camera</label>
+        <label><input type="radio" name="source" value="file" /> Video file</label>
+        <label><input type="radio" name="source" value="webcam" /> Webcam</label>
+      </div>
+      <div class="dev-row">
+        <input type="file" id="dev-video-file" accept="video/*" />
+      </div>
+      <div class="dev-grid" id="dev-perception"></div>
+      <div class="dev-stats" id="dev-perception-stats">–</div>
       <h2>Camera</h2>
       <div class="dev-grid" id="dev-camera"></div>
       <h2>Diagnostics</h2>
@@ -173,7 +192,7 @@
         <button type="button" id="dev-lose-context">Simulate context loss</button>
         <button type="button" id="dev-snapshot">Save frame PNG</button>
       </div>
-      <p class="dev-hint">Keys: Space pause · R reset · L live/reference · T corridor · [ ] speed · D panel</p>
+      <p class="dev-hint">Keys: Space pause · R reset · L live/reference · P perception · T corridor · [ ] speed · D panel</p>
       <p class="dev-hint">Demo only — no vehicle, navigation or audio services are connected.</p>
     </aside>
 

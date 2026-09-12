@@ -1,7 +1,10 @@
 import { SceneRenderer, DEFAULT_RIG, type CameraRig } from './render/SceneRenderer';
 import { Simulation, type SimMode } from './world/simulation';
-import { DevPanel } from './ui/devPanel';
+import { DevPanel, type AppMode, type PerceptionParams, type SourceKind } from './ui/devPanel';
 import { bindMediaPanel, updateHudScale } from './ui/hud';
+import { PerceptionMode } from './perception/perception';
+import { FileSource, SyntheticSource, WebcamSource, type FrameSource } from './perception/sources';
+import type { WorldState } from './world/types';
 
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
 const hud = document.getElementById('hud') as HTMLElement;
@@ -34,9 +37,22 @@ class App {
   private fpsTime = 0;
   private fps = 0;
   private mediaProgress = 0.48;
+  private perception = new PerceptionMode();
+  private perceptionParams: PerceptionParams;
+  private appMode: AppMode = 'live';
+  private sourceKind: SourceKind = 'synthetic';
+  private pendingFile: File | null = null;
+  private lastState: WorldState;
+  private pip = document.getElementById('pip') as HTMLElement;
+  private pipFrame = this.pip.querySelector('.pip-frame') as HTMLElement;
+  private pipBoxes = this.pip.querySelector('.pip-boxes') as HTMLCanvasElement;
+  private pipStats = document.getElementById('pip-stats') as HTMLElement;
+  private perceptionPaused = false;
 
   constructor() {
-    const requestedMode = (params.get('mode') === 'reference' ? 'reference' : 'live') as SimMode;
+    const requestedApp = params.get('mode');
+    const requestedMode = (requestedApp === 'reference' ? 'reference' : 'live') as SimMode;
+    this.perceptionParams = { ...this.perception.camera, nominalSpeedKph: this.perception.nominalSpeedKph };
     this.sim = new Simulation({
       mode: requestedMode,
       speedFactor: Number(params.get('speed')) || 1,
@@ -56,8 +72,20 @@ class App {
     const probe = params.get('probe');
     if (probe) this.applyProbe(probe);
 
-    this.devPanel = new DevPanel(this.rig, {
-      setMode: (mode) => this.setMode(mode),
+    this.lastState = this.sim.state;
+    this.devPanel = new DevPanel(this.rig, this.perceptionParams, {
+      setMode: (mode) => void this.setMode(mode),
+      setSource: (kind) => {
+        this.sourceKind = kind;
+        if (this.appMode === 'perception') void this.startPerception();
+      },
+      fileChosen: (file) => {
+        this.pendingFile = file;
+        this.sourceKind = 'file';
+        if (this.appMode === 'perception') void this.startPerception();
+        else void this.setMode('perception');
+      },
+      onPerceptionChange: () => this.applyPerceptionParams(),
       togglePause: () => this.togglePause(),
       reset: () => this.reset(),
       setSpeed: (factor) => {
@@ -73,6 +101,7 @@ class App {
       snapshot: () => this.snapshot(),
     });
     if (params.get('dev') === '1') this.devPanel.setOpen(true);
+    this.startInPerception = requestedApp === 'perception';
 
     this.media = bindMediaPanel(document.querySelector('.panel.media') as HTMLElement, {
       toggle: () => this.togglePause(),
@@ -109,7 +138,7 @@ class App {
       if (!this.renderer) this.renderer = new SceneRenderer(canvas, this.rig);
       this.renderer.showEgo = !this.hideEgo;
       this.resize();
-      this.renderer.update(this.sim.state);
+      this.renderer.update(this.lastState);
       this.renderer.render();
       errorBox.hidden = true;
       this.syncPanel();
@@ -117,6 +146,10 @@ class App {
       this.lastTime = performance.now();
       cancelAnimationFrame(this.raf);
       this.raf = requestAnimationFrame((t) => this.frame(t));
+      if (this.startInPerception) {
+        this.startInPerception = false;
+        void this.setMode('perception');
+      }
     } catch (err) {
       this.showError(describe(err), true);
     }
@@ -138,12 +171,18 @@ class App {
     try {
       const dt = Math.min(0.1, (now - this.lastTime) / 1000);
       this.lastTime = now;
-      this.sim.step(dt);
+      if (this.appMode === 'perception' && this.perception.active) {
+        this.lastState = this.perceptionPaused ? this.lastState : this.perception.step(dt * this.sim.speedFactor);
+        this.updatePip();
+      } else {
+        this.sim.step(dt);
+        this.lastState = this.sim.state;
+      }
       if (this.isPlaying()) {
         this.mediaProgress = Math.min(0.98, this.mediaProgress + (dt * this.sim.speedFactor) / 3600);
         this.updateMediaProgress();
       }
-      this.renderer.update(this.sim.state);
+      this.renderer.update(this.lastState);
       this.renderer.render();
       this.updateHud();
       this.frames++;
@@ -186,11 +225,26 @@ class App {
 
   private hideEgo = false;
 
+  private startInPerception = false;
+
   private isPlaying(): boolean {
+    if (this.appMode === 'perception') return this.perception.active && !this.perceptionPaused;
     return this.sim.mode === 'live' && !this.sim.paused;
   }
 
-  private setMode(mode: SimMode): void {
+  private async setMode(mode: AppMode): Promise<void> {
+    if (mode === 'perception') {
+      this.appMode = 'perception';
+      this.syncPanel();
+      await this.startPerception();
+      return;
+    }
+    if (this.appMode === 'perception') {
+      this.perception.stop();
+      this.pip.hidden = true;
+      this.pipFrame.replaceChildren();
+    }
+    this.appMode = mode;
     this.sim.setMode(mode);
     if (mode === 'live' && reducedMotion && !this.sim.paused) {
       this.sim.paused = true;
@@ -199,7 +253,94 @@ class App {
     this.syncPanel();
   }
 
+  /** Start (or restart) the perception pipeline with the selected source. */
+  private async startPerception(): Promise<void> {
+    this.pipFrame.replaceChildren();
+    this.pip.hidden = false;
+    this.pipStats.textContent = 'loading model…';
+    let source: FrameSource;
+    try {
+      if (this.sourceKind === 'webcam') {
+        const cam = new WebcamSource();
+        await cam.open();
+        source = cam;
+      } else if (this.sourceKind === 'file') {
+        if (!this.pendingFile) {
+          this.pipStats.textContent = 'choose a video file in the developer panel';
+          this.devPanel.setOpen(true);
+          source = new SyntheticSource(this.perceptionParams.hfovDeg);
+          this.sourceKind = 'synthetic';
+        } else source = new FileSource(this.pendingFile);
+      } else {
+        source = new SyntheticSource(this.perceptionParams.hfovDeg);
+      }
+      this.applyPerceptionParams();
+      this.pipFrame.replaceChildren(source.element);
+      await this.perception.start(source);
+      const titles = { synthetic: 'FRONT CAMERA (SYNTHETIC)', file: 'FRONT CAMERA (VIDEO)', webcam: 'FRONT CAMERA (WEBCAM)' };
+      document.getElementById('pip-title')!.textContent = titles[source.kind];
+    } catch (err) {
+      this.pipStats.textContent = 'perception failed: ' + (err instanceof Error ? err.message : String(err));
+      console.warn(err);
+    }
+    this.syncPanel();
+  }
+
+  private applyPerceptionParams(): void {
+    this.perception.camera = {
+      hfovDeg: this.perceptionParams.hfovDeg,
+      cameraHeight: this.perceptionParams.cameraHeight,
+      horizon: this.perceptionParams.horizon,
+    };
+    this.perception.nominalSpeedKph = this.perceptionParams.nominalSpeedKph;
+  }
+
+  private pipDetectionsSeen = -1;
+
+  /** Draw the detector's boxes over the camera frame and refresh the PiP status line. */
+  private updatePip(): void {
+    const el = this.perception.frameElement;
+    if (!el) return;
+    const w = this.pipBoxes.clientWidth || 1;
+    const h = this.pipBoxes.clientHeight || 1;
+    if (this.pipBoxes.width !== w || this.pipBoxes.height !== h) {
+      this.pipBoxes.width = w;
+      this.pipBoxes.height = h;
+    }
+    const src = this.perception.source;
+    const sw = src?.width || 1;
+    const sh = src?.height || 1;
+    const ctx = this.pipBoxes.getContext('2d')!;
+    ctx.clearRect(0, 0, w, h);
+    ctx.lineWidth = 1.5;
+    ctx.font = Math.max(9, h * 0.065) + 'px ' + getComputedStyle(document.body).fontFamily;
+    for (const d of this.perception.lastDetections) {
+      const [x, y, bw, bh] = d.bbox;
+      const isPerson = d.label === 'person' || d.label === 'bicycle' || d.label === 'motorcycle';
+      ctx.strokeStyle = isPerson ? '#ffcf3d' : '#4fd3ff';
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.strokeRect((x / sw) * w, (y / sh) * h, (bw / sw) * w, (bh / sh) * h);
+      ctx.fillText(d.label + ' ' + (d.score * 100).toFixed(0) + '%', (x / sw) * w + 2, Math.max(9, (y / sh) * h - 3));
+    }
+    const st = this.perception.stats();
+    if (st.detections !== this.pipDetectionsSeen || !st.modelReady) {
+      this.pipDetectionsSeen = st.detections;
+      this.pipStats.textContent = st.modelReady ? st.backend + ' · ' + st.detectorFps.toFixed(0) + ' Hz · ' + st.tracks + ' objects' : 'loading model…';
+    }
+    if (this.devPanel.isOpen()) {
+      this.devPanel.setPerceptionStats(
+        st.sourceKind + ' · model ' + (st.modelReady ? 'ready (' + st.backend + ')' : 'loading') + ' · ' + st.detectorFps.toFixed(1) + ' detections/s\n' +
+          st.detections + ' boxes → ' + st.tracks + ' tracked objects',
+      );
+    }
+  }
+
   private togglePause(): void {
+    if (this.appMode === 'perception') {
+      this.perceptionPaused = !this.perceptionPaused;
+      this.syncPanel();
+      return;
+    }
     if (this.sim.mode !== 'live') {
       this.sim.setMode('live');
       this.sim.paused = false;
@@ -211,8 +352,13 @@ class App {
   }
 
   private reset(): void {
-    this.sim.reset();
-    this.sim.paused = false;
+    if (this.appMode === 'perception') {
+      void this.startPerception();
+      this.perceptionPaused = false;
+    } else {
+      this.sim.reset();
+      this.sim.paused = false;
+    }
     this.mediaProgress = 0.48;
     this.updateMediaProgress();
     this.syncPanel();
@@ -226,7 +372,7 @@ class App {
 
   /** Speed, posted limit and the scrolling mini-map follow the simulation. */
   private updateHud(): void {
-    const s = this.sim.state;
+    const s = this.lastState;
     const kph = Math.round(s.ego.speedKph);
     if (kph !== this.lastShownSpeed) {
       this.hudSpeed.textContent = String(kph);
@@ -246,10 +392,11 @@ class App {
 
   private syncPanel(): void {
     this.devPanel.sync({
-      mode: this.sim.mode,
-      paused: this.sim.paused,
+      mode: this.appMode,
+      paused: this.appMode === 'perception' ? this.perceptionPaused : this.sim.paused,
       speed: this.sim.speedFactor,
       trajectory: this.sim.corridorVisible,
+      source: this.sourceKind,
     });
     this.media.setPlaying(this.isPlaying() || (this.sim.mode === 'reference' && !this.sim.paused));
   }
@@ -273,7 +420,11 @@ class App {
         break;
       case 'l':
       case 'L':
-        this.setMode(this.sim.mode === 'live' ? 'reference' : 'live');
+        void this.setMode(this.appMode === 'live' ? 'reference' : 'live');
+        break;
+      case 'p':
+      case 'P':
+        void this.setMode(this.appMode === 'perception' ? 'live' : 'perception');
         break;
       case 't':
       case 'T':
@@ -302,7 +453,7 @@ class App {
     updateHudScale(w, h);
     this.renderer?.resize(w, h);
     if (this.renderer && !this.contextLost) {
-      this.renderer.update(this.sim.state);
+      this.renderer.update(this.lastState);
       this.renderer.render();
     }
   }
@@ -325,8 +476,8 @@ class App {
     a.click();
   }
 
-  debug(): { sim: Simulation; renderer: () => SceneRenderer | null } {
-    return { sim: this.sim, renderer: () => this.renderer };
+  debug(): { sim: Simulation; renderer: () => SceneRenderer | null; perception: PerceptionMode; mode: () => AppMode; state: () => WorldState } {
+    return { sim: this.sim, renderer: () => this.renderer, perception: this.perception, mode: () => this.appMode, state: () => this.lastState };
   }
 
   private showError(message: string, retryable: boolean): void {

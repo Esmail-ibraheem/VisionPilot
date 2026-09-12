@@ -81,15 +81,17 @@ try {
   const page = await browser.newPage();
   const errors = [];
   const external = [];
+  const logs = [];
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());
+    else if (args.logs) logs.push(`[${m.type()}] ${m.text()}`);
   });
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('request', (r) => {
     const u = new URL(r.url());
     if (u.origin !== url.origin && !u.protocol.startsWith('data')) external.push(r.url());
   });
-  await page.goto(url.toString(), { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(url.toString(), { waitUntil: 'load', timeout: 60000 });
   await new Promise((r) => setTimeout(r, wait));
   const info = await page.evaluate(() => {
     const c = document.getElementById('scene');
@@ -123,6 +125,7 @@ try {
     }, pts);
     for (const c of colors) console.log('  sample ' + c);
   }
+  if (args.logs) for (const l of logs.slice(-25)) console.log('  log ' + l);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   await page.screenshot({ path: out });
   console.log(`saved ${out} (${width}x${height}) via ${path.basename(executablePath)}`);

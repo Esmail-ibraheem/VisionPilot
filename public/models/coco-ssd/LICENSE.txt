@@ -1,0 +1,3 @@
+SSDLite MobileNetV2 (COCO) weights converted for TensorFlow.js, from the TensorFlow model garden /
+tfjs-models (https://github.com/tensorflow/tfjs-models). Licensed under the Apache License 2.0.
+Served locally by this app so no runtime request leaves the origin.

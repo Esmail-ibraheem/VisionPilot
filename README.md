@@ -9,6 +9,8 @@ Everything renders from a real Three.js scene (vehicles, wheels, pedestrians and
 models are generated procedurally at start-up, so the app makes **no runtime requests to third-party
 CDNs and needs no downloaded assets**.
 
+![live mode: intersection](screenshots/live-intersection.png)
+
 ![reference mode](screenshots/reference.png)
 
 ## Run it
@@ -43,51 +45,70 @@ npm run screenshot -- --query "mode=live" --wait 4000 --out screenshots/live.png
 
 ## Using the app
 
-The page opens in **reference mode**: the frozen arrangement from the reference photo. The developer
-panel (the small `DEV` tab on the right edge, or the `D` key) exposes:
+The page opens **driving**: the ego car follows a generated city route at up to 42 km/h — lane and
+cross traffic, oncoming cars, lane changes, parked rows, pedestrians crossing on walk phases,
+signalised and stop-sign intersections, and turns at intersections (the world rotates around the
+car, the blue planned path bends into the new street). The speed readout and posted limit follow the
+simulation; the mini-map scrolls.
 
-| Control | Effect |
+Three modes (developer panel — the small `DEV` tab on the right edge, or the `D` key):
+
+| Mode | What it shows |
 | --- | --- |
-| Reference / Live | Frozen reference scene ↔ live demo (ego drives at 42 km/h, traffic and parked rows stream by) |
-| Pause / Resume, Reset | Pause the live demo; reset returns to the reference arrangement |
-| Speed | Simulation speed factor 0.25×–3× |
-| Show planned-path corridor | Optional blue trajectory ribbon (off in the reference scene) |
-| Camera sliders | fov / back / height / ahead / lateral / fog near / far — live tuning |
-| Simulate context loss | Forces a WebGL context loss; the app shows a banner and rebuilds on restore |
-| Save frame PNG | Downloads the current 3D frame |
+| **Live** (default) | The living world above. Deterministic: the same elapsed-time sequence gives the same drive. |
+| **Reference** | The frozen arrangement from the reference photo, for side-by-side comparison. |
+| **Perception** | Camera → neural network → 3D. A COCO-SSD detector (bundled, runs in the browser) finds cars, trucks, buses, people and bikes in a camera feed; a tracker stabilises them; a ground-plane projection places them in the 3D scene. The picture-in-picture shows the frame the network sees with its boxes. |
 
-Keyboard: `Space` pause/resume (starts live mode from reference), `R` reset, `L` toggle live/reference,
-`T` corridor, `[` / `]` speed, `D` panel. The media panel's pause/play button also pauses/resumes the
-demo; the ±15 s buttons nudge the (simulated) podcast progress. Nothing is connected to real vehicle,
-navigation or audio services.
+Perception sources: **Synthetic front camera** (a hidden second renderer draws the live world from
+the ego's windshield — the detector only ever sees those pixels, so what reaches the main view came
+through the network), **Video file** (pick a dashcam `.mp4`; it never leaves your machine), or
+**Webcam**. Calibration sliders: camera field of view, camera height, horizon row, and the speed to
+assume when the source has no odometry. Lane lines in perception mode are *assumed straight* — lane
+detection is not part of this pipeline.
+
+Other controls: Pause / Resume, Reset, speed factor 0.25×–3×, planned-path corridor on/off, camera
+rig sliders (fov / back / height / ahead / lateral / fog), "Simulate context loss", "Save frame PNG".
+Keyboard: `Space` pause/resume, `R` reset, `L` live/reference, `P` perception, `T` corridor,
+`[` / `]` speed, `D` panel. The media panel's pause/play button also pauses the demo; ±15 s nudge the
+(simulated) podcast progress. Nothing is connected to real vehicle, navigation or audio services.
 
 `prefers-reduced-motion: reduce` keeps the scene frozen until the live demo is explicitly started.
 
-URL parameters (handy for comparisons): `?mode=live`, `?speed=2`, `?hud=0` (hide overlays),
-`?dev=1` (open the panel), camera overrides such as `?fov=27.4&back=43.6&height=13.1&ahead=6.5`,
-`?probe=sedan|crossover|van|ego&yaw=145` (single-model viewer), `?simulateError=1` (exercise the error
-overlay + Retry).
+URL parameters: `?mode=live|reference|perception`, `?skip=60` (pre-advance the live world 60 s —
+deterministic, handy for screenshots), `?speed=2`, `?corridor=0`, `?hud=0`, `?dev=1`,
+`?tfBackend=webgl|cpu`, camera overrides such as `?fov=27.4&back=43.6&height=13.1&ahead=6.5`,
+`?probe=sedan|crossover|van|ego&yaw=145` (single-model viewer), `?simulateError=1`.
 
 ## How it is built
 
 ```
 src/
-  world/            world-state model — independent of rendering
-    types.ts        WorldState: ego pose/speed, vehicles, pedestrians, lane geometry, trajectory
-    reference.ts    the frozen arrangement estimated from the reference photo
-    simulation.ts   deterministic demo simulation producing WorldState from elapsed time
+  world/              world model — independent of rendering
+    types.ts          WorldState: ego, vehicles, pedestrians, markings, crosswalks, signals, signs, route
+    reference.ts      the frozen arrangement estimated from the reference photo
+    geometry.ts       frames + a line/arc Path (the ego's route)
+    network.ts        road network: legs, intersections, signal phases, turn arcs
+    live.ts           the live world: ego controller, traffic (IDM car-following, lane changes,
+                      signals, stop signs), parked rows, pedestrians, markings/props output
+    simulation.ts     mode orchestration (reference / live), deterministic sub-stepping
+  perception/         camera → NN → 3D
+    detector.ts       COCO-SSD (SSDLite MobileNetV2) via TensorFlow.js, model served from public/
+    projection.ts     box bottom-edge → ground-plane distance / lateral offset, class → body kind
+    tracker.ts        nearest-neighbour association, smoothing, confirmation and coasting
+    sources.ts        synthetic front camera (hidden renderer), video file, webcam
+    perception.ts     the async detection loop and the WorldState it produces each frame
   render/
-    SceneRenderer.ts  Three.js scene, camera rig, lights, fog; update(state) syncs object pools
-    vehicles/loft.ts  cross-section loft: profile curves → smooth body mesh with glass/body/trim groups
-    vehicles/specs.ts sedan, crossover, van and ego (Model 3-like) body definitions
-    vehicles/buildVehicle.ts  body + wheels + lights + mirrors + contact shadow per vehicle type
-    pedestrian.ts, ground.ts (lane dashes, arrow, corridor), environment.ts, blobShadow.ts
-  ui/               HUD scaling + developer panel
-  main.ts           bootstrap, error overlay/retry, context-loss handling, frame loop
+    SceneRenderer.ts  Three.js scene, chase / dashcam camera rigs, lights, fog; update(state)
+    vehicles/         procedural lofted bodies (loft.ts, specs.ts) + assembly (buildVehicle.ts)
+    ground.ts         polyline markings, zebra crossings, arrows, the curved path ribbon
+    props.ts          traffic signals and stop signs; pedestrian.ts, environment.ts, blobShadow.ts
+  ui/                 HUD scaling + developer panel
+  main.ts             bootstrap, mode switching, PiP overlay, error overlay/retry, context loss
+public/models/coco-ssd/  detector weights (Apache-2.0, TensorFlow model garden), ~18 MB
 ```
 
-The simulation produces a plain `WorldState`; the renderer only reads it. To drive the display from
-another data source, construct `WorldState` objects yourself and call `SceneRenderer.update(state)`.
+Every producer (live simulation, perception pipeline) emits a plain `WorldState`; the renderer only
+reads it, so another data source can be connected by producing that structure.
 
 ### Camera
 
@@ -109,9 +130,19 @@ merged per vehicle type (≈ 9 draw calls per vehicle).
 
 ## Verification performed
 
-- Unit tests: simulation determinism, pause/reset/speed, parked objects fixed in world space, no
-  visible pop-in, loft geometry sanity (extents, outward normals, arches, material groups).
-- Browser: first load renders the full scene; refresh works; console clean; all requests same-origin;
-  live/pause/resume/reset/speed/corridor controls verified; context loss → banner → automatic rebuild;
-  simulated init failure → overlay → Retry recovers; layouts checked at 1200×791, 900×560, 480×800.
-- Screenshots in `screenshots/` are produced from the production bundle with the headless script.
+- Unit tests (`npm test`): path/arc geometry, turn arcs landing on the ego lane, signal phases never
+  green for conflicting movements (protected left turns), 300 s of simulated driving with turns and
+  red-light stops and no vehicle/pedestrian collisions, determinism, pause/speed/reset, loft
+  geometry sanity.
+- Browser: first load renders the full scene and drives immediately; console clean; all requests
+  same-origin (detector weights included); live/pause/resume/reset/speed/corridor controls verified;
+  context loss → banner → automatic rebuild; simulated init failure → overlay → Retry recovers;
+  layouts checked at 1200×791, 900×560, 480×800.
+- Screenshots in `screenshots/` are produced with `scripts/screenshot.mjs` (headless Edge).
+- Perception: `tests/perception.test.ts` covers the projection maths and the tracker. The bundled
+  network was verified offline with `npm run nn-check`: it loads the local weights and runs them on a
+  frame captured from the app's synthetic front camera (`screenshots/frame.b64`, produced by the
+  `--eval` snippet in `scripts/nn-check.mjs`), detecting the cars in it. In-browser, the WebGL backend
+  initialised and the model loaded in ~8 s on this machine's GPU; live detection at ~10 Hz needs a
+  visible tab with hardware WebGL — the headless software renderer used for the screenshots is far too
+  slow for the network (≈ 90 s per frame), so live perception screenshots are not included.

@@ -2,6 +2,11 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   base: './',
+  optimizeDeps: {
+    // Pre-bundle the lazily imported detector packages so the first perception start does not
+    // trigger a dependency re-optimisation and page reload in dev.
+    include: ['@tensorflow/tfjs', '@tensorflow-models/coco-ssd'],
+  },
   build: {
     target: 'es2022',
     sourcemap: false,

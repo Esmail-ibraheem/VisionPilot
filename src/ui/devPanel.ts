@@ -1,8 +1,18 @@
 import type { CameraRig } from '../render/SceneRenderer';
-import type { SimMode } from '../world/simulation';
+import type { CameraModel } from '../perception/projection';
+
+export type AppMode = 'live' | 'reference' | 'perception';
+export type SourceKind = 'synthetic' | 'file' | 'webcam';
+
+export interface PerceptionParams extends CameraModel {
+  nominalSpeedKph: number;
+}
 
 export interface DevPanelHandlers {
-  setMode(mode: SimMode): void;
+  setMode(mode: AppMode): void;
+  setSource(kind: SourceKind): void;
+  fileChosen(file: File): void;
+  onPerceptionChange(): void;
   togglePause(): void;
   reset(): void;
   setSpeed(factor: number): void;
@@ -13,11 +23,19 @@ export interface DevPanelHandlers {
 }
 
 export interface DevPanelState {
-  mode: SimMode;
+  mode: AppMode;
   paused: boolean;
   speed: number;
   trajectory: boolean;
+  source: SourceKind;
 }
+
+const PERCEPTION_FIELDS: Array<{ key: keyof PerceptionParams; label: string; min: number; max: number; step: number }> = [
+  { key: 'hfovDeg', label: 'camera hfov °', min: 40, max: 120, step: 1 },
+  { key: 'cameraHeight', label: 'camera height m', min: 0.6, max: 2.6, step: 0.05 },
+  { key: 'horizon', label: 'horizon (0–1)', min: 0.3, max: 0.7, step: 0.005 },
+  { key: 'nominalSpeedKph', label: 'assumed speed km/h', min: 0, max: 90, step: 1 },
+];
 
 const RIG_FIELDS: Array<{ key: keyof CameraRig; min: number; max: number; step: number }> = [
   { key: 'fov', min: 10, max: 60, step: 0.5 },
@@ -38,14 +56,44 @@ export class DevPanel {
   private trajectoryInput = document.getElementById('dev-trajectory') as HTMLInputElement;
   private stats = document.getElementById('dev-stats') as HTMLElement;
   private rigInputs = new Map<keyof CameraRig, { range: HTMLInputElement; val: HTMLElement }>();
+  private perceptionStats = document.getElementById('dev-perception-stats') as HTMLElement;
 
   constructor(
     private rig: CameraRig,
+    perception: PerceptionParams,
     handlers: DevPanelHandlers,
   ) {
     this.toggle.addEventListener('click', () => this.setOpen(this.panel.hidden));
     for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="mode"]')) {
-      radio.addEventListener('change', () => radio.checked && handlers.setMode(radio.value as SimMode));
+      radio.addEventListener('change', () => radio.checked && handlers.setMode(radio.value as AppMode));
+    }
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="source"]')) {
+      radio.addEventListener('change', () => radio.checked && handlers.setSource(radio.value as SourceKind));
+    }
+    const fileInput = document.getElementById('dev-video-file') as HTMLInputElement;
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files?.[0];
+      if (f) handlers.fileChosen(f);
+    });
+    const pgrid = document.getElementById('dev-perception')!;
+    for (const f of PERCEPTION_FIELDS) {
+      const label = document.createElement('label');
+      label.textContent = f.label;
+      const range = document.createElement('input');
+      range.type = 'range';
+      range.min = String(f.min);
+      range.max = String(f.max);
+      range.step = String(f.step);
+      range.value = String(perception[f.key]);
+      const val = document.createElement('span');
+      val.className = 'val';
+      val.textContent = String(perception[f.key]);
+      range.addEventListener('input', () => {
+        perception[f.key] = Number(range.value);
+        val.textContent = range.value;
+        handlers.onPerceptionChange();
+      });
+      pgrid.append(label, range, val);
     }
     this.pauseBtn.addEventListener('click', () => handlers.togglePause());
     document.getElementById('dev-reset')!.addEventListener('click', () => handlers.reset());
@@ -90,7 +138,10 @@ export class DevPanel {
       radio.checked = radio.value === state.mode;
     }
     this.pauseBtn.textContent = state.paused ? 'Resume' : 'Pause';
-    this.pauseBtn.disabled = state.mode !== 'live';
+    this.pauseBtn.disabled = state.mode === 'reference';
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="source"]')) {
+      radio.checked = radio.value === state.source;
+    }
     this.speedInput.value = String(state.speed);
     this.speedVal.textContent = `${state.speed.toFixed(2).replace(/\.?0+$/, '')}×`;
     this.trajectoryInput.checked = state.trajectory;
@@ -102,5 +153,9 @@ export class DevPanel {
 
   setStats(text: string): void {
     if (!this.panel.hidden) this.stats.textContent = text;
+  }
+
+  setPerceptionStats(text: string): void {
+    this.perceptionStats.textContent = text;
   }
 }
