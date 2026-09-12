@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <title>Driving Visualization</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23111'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <canvas id="scene" aria-label="3D driving visualization"></canvas>
+
+    <div id="hud" class="hud" aria-hidden="true">
+      <!-- ─── top-left: gear, battery, speed ─── -->
+      <div class="cluster">
+        <div class="cluster-top">
+          <span class="gears"><span>P</span><span>R</span><span>N</span><span class="on">D</span></span>
+          <svg class="ico wheel" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.4" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/><path d="M8 9.4V14M2.2 6.4 6.6 7.5M13.8 6.4 9.4 7.5" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
+          <span class="battery"><span class="battery-body"><span class="battery-fill"></span></span><span class="battery-cap"></span></span>
+          <span class="battery-pct">72%</span>
+        </div>
+        <div class="speed">42</div>
+        <div class="speed-unit">KM/H</div>
+        <div class="limits">
+          <div class="limit-sign">50</div>
+          <div class="max"><div class="max-val">43</div><div class="max-lbl">MAX</div></div>
+        </div>
+        <svg class="ico beam" viewBox="0 0 22 14"><path d="M2 3.5h7M2 7h7M2 10.5h7" stroke="currentColor" stroke-width="1.1"/><path d="M11.5 2h4.5a4.9 5 0 0 1 0 10h-4.5z" fill="none" stroke="currentColor" stroke-width="1.1"/><text x="12.2" y="9.6" font-size="6.5" font-weight="700" fill="currentColor" font-family="Arial, sans-serif">A</text></svg>
+      </div>
+
+      <!-- ─── top-centre: status symbols ─── -->
+      <div class="status-center">
+        <svg class="ico lock" viewBox="0 0 12 14"><rect x="1.5" y="6" width="9" height="7" rx="1.2" fill="currentColor"/><path d="M3.5 6V4.2a2.5 2.5 0 0 1 5 0V6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+        <span class="sos">SOS<svg viewBox="0 0 10 8"><path d="M1 7V5M3.3 7V3.5M5.6 7V2M7.9 7V.6" stroke="currentColor" stroke-width="1.3"/></svg></span>
+      </div>
+
+      <!-- ─── top-right: clock, temperature, airbag ─── -->
+      <div class="status-right">
+        <span class="clock">16:28</span>
+        <span class="temp">20°C</span>
+        <span class="airbag"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="5.2" r="1.6" fill="currentColor"/><path d="M5 13c0-2.5 1.2-4 3-4s3 1.5 3 4" fill="currentColor"/></svg><span class="airbag-txt">PASSENGER<br/>AIRBAG<b>ON</b></span></span>
+      </div>
+
+      <!-- ─── map: faint roads and position marker ─── -->
+      <svg class="map" viewBox="0 0 300 400" preserveAspectRatio="xMaxYMin meet">
+        <g class="road-outline" fill="none" stroke="#dedede" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M196 -10 C194 60 190 120 178 190 C168 250 160 320 158 420" stroke-width="12"/>
+          <path d="M60 40 L140 52 L300 62" stroke-width="7"/>
+          <path d="M20 132 L118 140" stroke-width="7"/>
+          <path d="M120 210 L300 205" stroke-width="7"/>
+          <path d="M0 300 L162 305 L300 295" stroke-width="7"/>
+          <path d="M240 60 L232 200" stroke-width="6"/>
+          <path d="M110 140 C120 200 118 260 100 400" stroke-width="7"/>
+        </g>
+        <g class="road" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M196 -10 C194 60 190 120 178 190 C168 250 160 320 158 420" stroke-width="9"/>
+          <path d="M60 40 L140 52 L300 62" stroke-width="4.5"/>
+          <path d="M20 132 L118 140" stroke-width="4.5"/>
+          <path d="M120 210 L300 205" stroke-width="4.5"/>
+          <path d="M0 300 L162 305 L300 295" stroke-width="4.5"/>
+          <path d="M240 60 L232 200" stroke-width="3.5"/>
+          <path d="M110 140 C120 200 118 260 100 400" stroke-width="4.5"/>
+        </g>
+        <path class="marker" d="M184 118 L193.5 138 L184 133 L174.5 138 Z" fill="#e0242f" stroke="#b21a24" stroke-width="0.8" stroke-linejoin="round"/>
+      </svg>
+
+      <!-- ─── bottom: media panel ─── -->
+      <div class="panel media">
+        <div class="art">
+          <span class="art-a">apfel</span><span class="art-f">funk</span>
+          <svg class="art-wave" viewBox="0 0 12 12"><path d="M4 8.6a3 3 0 0 1 0-5.2M2.4 10.4a5.4 5.4 0 0 1 0-8.8" fill="none" stroke="#c9302c" stroke-width="1.3" stroke-linecap="round"/><circle cx="6.2" cy="6" r="1.1" fill="#c9302c"/></svg>
+        </div>
+        <div class="title">433: Nordlichter</div>
+        <div class="subtitle"><svg viewBox="0 0 12 12"><rect x="1" y="1.5" width="10" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1"/><path d="M3.5 4.5h5M3.5 6.5h5M3.5 8.5h3" stroke="currentColor" stroke-width="1"/></svg>Malte Kirchner &amp; Jean-Claude Frick</div>
+        <div class="rate">1x</div>
+        <div class="progress"><div class="progress-fill"></div><div class="progress-dot"></div></div>
+        <div class="controls">
+          <button type="button" class="ctl" data-action="back15" aria-label="15 Sekunden zurück">
+            <svg viewBox="0 0 24 24"><path d="M12 4.5a7.5 7.5 0 1 1-7.3 5.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M4 3.5v5h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="15.3" text-anchor="middle" font-size="7.2" font-weight="700" fill="currentColor" font-family="Arial, sans-serif">15</text></svg>
+          </button>
+          <button type="button" class="ctl play" data-action="toggle" aria-label="Pause">
+            <svg class="ico-pause" viewBox="0 0 24 24"><rect x="6.5" y="4" width="3.6" height="16" rx="0.8" fill="currentColor"/><rect x="13.9" y="4" width="3.6" height="16" rx="0.8" fill="currentColor"/></svg>
+            <svg class="ico-play" viewBox="0 0 24 24" hidden><path d="M7 4.2v15.6L19.5 12z" fill="currentColor"/></svg>
+          </button>
+          <button type="button" class="ctl" data-action="fwd15" aria-label="15 Sekunden vor">
+            <svg viewBox="0 0 24 24"><path d="M12 4.5a7.5 7.5 0 1 0 7.3 5.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M20 3.5v5h-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="15.3" text-anchor="middle" font-size="7.2" font-weight="700" fill="currentColor" font-family="Arial, sans-serif">15</text></svg>
+          </button>
+          <button type="button" class="ctl" data-action="eq" aria-label="Equalizer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 4v16M12 4v16M18 4v16"/><path d="M3.8 9.5h4.4M9.8 14h4.4M15.8 7.5h4.4"/></svg>
+          </button>
+          <button type="button" class="ctl" data-action="search" aria-label="Suchen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.2"/><path d="M15.2 15.2 20 20"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- ─── bottom: navigation panel ─── -->
+      <div class="panel nav">
+        <div class="nav-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.2"/><path d="M15.2 15.2 20 20"/></svg>
+          <span>Navigieren</span>
+        </div>
+        <div class="nav-row">
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 2.8 11h2.6v9.3h5.4v-6h2.4v6h5.4V11h2.6z"/></svg><span>Zuhause</span></div>
+          <div class="nav-sep"></div>
+          <div class="nav-item"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7h4a2 2 0 0 1 2 2v3.5H3V9a2 2 0 0 1 2-2h4zm1.6 2.5h2.8V4.6h-2.8zM3 14h7v1.6h4V14h7v5.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5z"/></svg><span>Arbeit</span></div>
+        </div>
+      </div>
+
+      <!-- ─── bottom: application dock ─── -->
+      <div class="dock">
+        <div class="dock-group left">
+          <svg class="dock-ico car" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M5 19.5 7.5 12.5c.4-1 1.3-1.5 2.3-1.5h12.4c1 0 1.9.5 2.3 1.5L27 19.5v6H5z"/><path d="M5 19.5h22M8.5 25.5v2.3M23.5 25.5v2.3"/><circle cx="9.5" cy="22.5" r="1.4" fill="currentColor"/><circle cx="22.5" cy="22.5" r="1.4" fill="currentColor"/></svg>
+          <div class="climate">
+            <div class="temp-val">22.5</div>
+            <div class="climate-sub">
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1"><circle cx="6" cy="6" r="1.4"/><path d="M6 1.2c2 0 2.2 2.6.8 3.4M10.6 5.5c-1 1.8-3.3 1.3-3.9-.3M7.1 10.6c-2-.4-1.9-3-.3-3.7M1.6 7.4c.4-2 3-2.2 3.8-.7M3.2 2.3c1.7-1.1 3.4.8 2.9 2.4"/></svg>
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"><path d="M3 2.5 3.8 8h5.4"/><path d="M4 8v2M9 8v2"/></svg>
+            </div>
+          </div>
+          <svg class="dock-ico seat" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 7.5c-1.6 0-2.4 1.4-2 3l2.4 10.7c.3 1.2 1.2 2 2.4 2h11"/><path d="M12.6 21.2 10.8 12"/><path d="M14 10.5c0-1.2.8-2 1.6-2.7M18 10.5c0-1.2.8-2 1.6-2.7M22 10.5c0-1.2.8-2 1.6-2.7"/><path d="M14 15.5c0-1.2.8-2 1.6-2.7M18 15.5c0-1.2.8-2 1.6-2.7M22 15.5c0-1.2.8-2 1.6-2.7"/></svg>
+        </div>
+        <div class="dock-group apps">
+          <svg class="dock-ico phone" viewBox="0 0 32 32"><path d="M11.2 6.5c.8-.7 2-.6 2.6.3l2.3 3.4c.5.8.4 1.9-.3 2.5l-1.6 1.4c1.1 2.6 3.1 4.6 5.7 5.7l1.4-1.6c.6-.7 1.7-.8 2.5-.3l3.4 2.3c.9.6 1 1.8.3 2.6l-1.9 2.1c-1.1 1.2-2.8 1.6-4.3 1C15.6 24 9.9 18.4 7.8 12.7c-.6-1.5-.2-3.2 1-4.3z" fill="#34c759"/></svg>
+          <svg class="dock-ico music" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" rx="6.5" fill="#fff"/><path d="M21.5 8.2 13 10.1v9.3a3 3 0 1 0 1.6 2.7V13l5.3-1.2v5.5a3 3 0 1 0 1.6 2.7z" fill="#fa2d48"/></svg>
+          <svg class="dock-ico podcasts" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" rx="6.5" fill="#b150e2"/><circle cx="16" cy="13.2" r="3.3" fill="#fff"/><path d="M13.2 24.5c-.5-2.5-.6-4.4-.3-5.3.4-1.1 1.3-1.6 3.1-1.6s2.7.5 3.1 1.6c.3.9.2 2.8-.3 5.3-.2.9-.9 1.3-2.8 1.3s-2.6-.4-2.8-1.3z" fill="#fff"/><path d="M9.8 18.6a7.4 7.4 0 1 1 12.4 0" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <svg class="dock-ico dashcam" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" rx="6.5" fill="#f2f2f2"/><rect x="8" y="10" width="16" height="12" rx="2.5" fill="none" stroke="#7a7a7a" stroke-width="1.7"/><circle cx="16" cy="16" r="3" fill="none" stroke="#7a7a7a" stroke-width="1.7"/><circle cx="21.5" cy="12.5" r="1" fill="#7a7a7a"/></svg>
+          <svg class="dock-ico spotify" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="#1ed760"/><path d="M9.5 12.6c4.6-1.4 9.6-1 13.4 1.2M10.3 16.3c3.9-1.1 8-.8 11.2 1M11 19.8c3.1-.9 6.4-.6 9 .8" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg class="dock-ico more" viewBox="0 0 32 32" fill="currentColor"><circle cx="8" cy="16" r="2.3"/><circle cx="16" cy="16" r="2.3"/><circle cx="24" cy="16" r="2.3"/></svg>
+          <svg class="dock-ico notes" viewBox="0 0 32 32"><rect x="4" y="3" width="24" height="26" rx="4" fill="#fff"/><rect x="4" y="3" width="24" height="7" rx="4" fill="#ececec"/><path d="M9 15h14M9 19h14M9 23h9" stroke="#8a8a8a" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </div>
+        <div class="dock-group right">
+          <svg class="dock-ico cam" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10" width="15" height="12" rx="2"/><path d="m20 14 6-3v10l-6-3z"/></svg>
+          <svg class="dock-ico volume" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5h4.5L17 7.5v17l-6.5-5H6z" fill="currentColor"/><path d="M21 12.2a5.6 5.6 0 0 1 0 7.6M24.3 9a10 10 0 0 1 0 14"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── developer panel (collapsed by default) ─── -->
+    <button type="button" id="dev-toggle" class="dev-toggle" aria-label="Developer panel" title="Developer panel (D)">DEV</button>
+    <aside id="dev-panel" class="dev-panel" hidden>
+      <h2>Simulation</h2>
+      <div class="dev-row">
+        <label><input type="radio" name="mode" value="reference" checked /> Reference (frozen)</label>
+        <label><input type="radio" name="mode" value="live" /> Live</label>
+      </div>
+      <div class="dev-row">
+        <button type="button" id="dev-pause">Pause</button>
+        <button type="button" id="dev-reset">Reset</button>
+      </div>
+      <div class="dev-row">
+        <label for="dev-speed">Speed <span id="dev-speed-val">1.0×</span></label>
+        <input type="range" id="dev-speed" min="0.25" max="3" step="0.25" value="1" />
+      </div>
+      <div class="dev-row">
+        <label><input type="checkbox" id="dev-trajectory" /> Show planned-path corridor</label>
+      </div>
+      <h2>Camera</h2>
+      <div class="dev-grid" id="dev-camera"></div>
+      <h2>Diagnostics</h2>
+      <div class="dev-stats" id="dev-stats">–</div>
+      <div class="dev-row">
+        <button type="button" id="dev-lose-context">Simulate context loss</button>
+        <button type="button" id="dev-snapshot">Save frame PNG</button>
+      </div>
+      <p class="dev-hint">Keys: Space pause · R reset · L live/reference · T corridor · [ ] speed · D panel</p>
+      <p class="dev-hint">Demo only — no vehicle, navigation or audio services are connected.</p>
+    </aside>
+
+    <div id="motion-note" class="motion-note" hidden>Reduced motion is enabled — the scene starts frozen. Use the developer panel to run the live demo.</div>
+
+    <div id="error" class="error" hidden>
+      <div class="error-card">
+        <h1>Rendering failed</h1>
+        <p id="error-msg">Unknown error</p>
+        <button type="button" id="error-retry">Retry</button>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
