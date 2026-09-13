@@ -1,0 +1,4 @@
+Map extracts in this folder contain data from OpenStreetMap (https://www.openstreetmap.org),
+© OpenStreetMap contributors, licensed under the Open Data Commons Open Database License (ODbL) 1.0.
+Fetched with scripts/fetch-osm.mjs via the Overpass API and stored locally so the app makes no
+runtime requests to third parties.

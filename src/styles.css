@@ -253,6 +253,19 @@ body {
   color: #8a8a8a;
 }
 
+/* current street (map worlds) */
+.street {
+  position: absolute;
+  left: 50%;
+  top: calc(30 * var(--s));
+  transform: translateX(-50%);
+  font-size: calc(12.5 * var(--s));
+  font-weight: 500;
+  letter-spacing: calc(0.3 * var(--s));
+  color: #6a6a6a;
+  white-space: nowrap;
+}
+
 /* ─── map ─── */
 .map {
   position: absolute;

@@ -1,6 +1,7 @@
 import type { CameraRig } from '../render/SceneRenderer';
 import type { CameraModel } from '../perception/projection';
 import type { VehicleStyle } from '../render/vehicles/buildVehicle';
+import type { WorldKind } from '../world/simulation';
 
 export type AppMode = 'live' | 'reference' | 'perception';
 export type SourceKind = 'synthetic' | 'file' | 'webcam';
@@ -13,6 +14,7 @@ export interface DevPanelHandlers {
   setMode(mode: AppMode): void;
   setSource(kind: SourceKind): void;
   setVehicleStyle(style: VehicleStyle): void;
+  setWorld(world: WorldKind): void;
   fileChosen(file: File): void;
   onPerceptionChange(): void;
   togglePause(): void;
@@ -22,6 +24,7 @@ export interface DevPanelHandlers {
   onRigChange(): void;
   loseContext(): void;
   snapshot(): void;
+  exportOpenDrive(): void;
 }
 
 export interface DevPanelState {
@@ -31,6 +34,8 @@ export interface DevPanelState {
   trajectory: boolean;
   source: SourceKind;
   cars: VehicleStyle;
+  world: WorldKind;
+  mapAvailable: boolean;
 }
 
 const PERCEPTION_FIELDS: Array<{ key: keyof PerceptionParams; label: string; min: number; max: number; step: number }> = [
@@ -76,6 +81,9 @@ export class DevPanel {
     for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="cars"]')) {
       radio.addEventListener('change', () => radio.checked && handlers.setVehicleStyle(radio.value as VehicleStyle));
     }
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="world"]')) {
+      radio.addEventListener('change', () => radio.checked && handlers.setWorld(radio.value as WorldKind));
+    }
     const fileInput = document.getElementById('dev-video-file') as HTMLInputElement;
     fileInput.addEventListener('change', () => {
       const f = fileInput.files?.[0];
@@ -107,6 +115,7 @@ export class DevPanel {
     this.trajectoryInput.addEventListener('change', () => handlers.setTrajectory(this.trajectoryInput.checked));
     document.getElementById('dev-lose-context')!.addEventListener('click', () => handlers.loseContext());
     document.getElementById('dev-snapshot')!.addEventListener('click', () => handlers.snapshot());
+    document.getElementById('dev-export-xodr')!.addEventListener('click', () => handlers.exportOpenDrive());
 
     const grid = document.getElementById('dev-camera')!;
     for (const f of RIG_FIELDS) {
@@ -150,6 +159,10 @@ export class DevPanel {
     }
     for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="cars"]')) {
       radio.checked = radio.value === state.cars;
+    }
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="world"]')) {
+      radio.checked = radio.value === state.world;
+      if (radio.value === 'map') radio.disabled = !state.mapAvailable;
     }
     this.speedInput.value = String(state.speed);
     this.speedVal.textContent = `${state.speed.toFixed(2).replace(/\.?0+$/, '')}×`;

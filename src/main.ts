@@ -5,6 +5,10 @@ import { updateHudScale } from './ui/hud';
 import { PerceptionMode } from './perception/perception';
 import { FileSource, SyntheticSource, WebcamSource, type FrameSource } from './perception/sources';
 import type { VehicleStyle } from './render/vehicles/buildVehicle';
+import { loadMapNetwork } from './world/map/load';
+import type { WorldKind } from './world/simulation';
+import { MapWorld } from './world/map/mapWorld';
+import { LiveWorld } from './world/live';
 import type { WorldState } from './world/types';
 
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -50,14 +54,18 @@ class App {
   /** Car models: the sibling project's (`dv`, default) or this app's lofts (`?cars=loft`). */
   private vehicleStyle: VehicleStyle = params.get('cars') === 'loft' ? 'loft' : 'dv';
 
+  private worldKind: WorldKind;
+
   constructor() {
     const requestedApp = params.get('mode');
     const requestedMode = (requestedApp === 'reference' ? 'reference' : 'live') as SimMode;
+    this.worldKind = params.get('world') === 'generated' || !Simulation.defaultNetwork ? 'generated' : 'map';
     this.perceptionParams = { ...this.perception.camera, nominalSpeedKph: this.perception.nominalSpeedKph };
     this.sim = new Simulation({
       mode: requestedMode,
       speedFactor: Number(params.get('speed')) || 1,
       liveCorridor: params.get('corridor') !== '0',
+      world: this.worldKind,
     });
     if (requestedMode === 'live' && reducedMotion) {
       this.sim.paused = true;
@@ -89,6 +97,12 @@ class App {
         this.renderer?.setVehicleStyle(style);
         this.syncPanel();
       },
+      setWorld: (world) => {
+        if (world === 'map' && !Simulation.defaultNetwork) return;
+        this.worldKind = world;
+        this.sim.setWorld(world);
+        this.syncPanel();
+      },
       fileChosen: (file) => {
         this.pendingFile = file;
         this.sourceKind = 'file';
@@ -109,6 +123,7 @@ class App {
       onRigChange: () => this.renderer?.applyRig(),
       loseContext: () => this.simulateContextLoss(),
       snapshot: () => this.snapshot(),
+      exportOpenDrive: () => void this.exportOpenDrive(),
     });
     if (params.get('dev') === '1') this.devPanel.setOpen(true);
     this.startInPerception = requestedApp === 'perception';
@@ -359,6 +374,8 @@ class App {
   private mapRoads = document.querySelector('.map .roads') as SVGGElement | null;
   private lastShownSpeed = -1;
   private lastShownLimit = -1;
+  private streetLabel = document.getElementById('street-label') as HTMLElement;
+  private lastStreet = '';
 
   /** Speed, posted limit and the scrolling mini-map follow the simulation. */
   private updateHud(): void {
@@ -372,9 +389,16 @@ class App {
       this.hudLimit.textContent = String(s.speedLimit);
       this.lastShownLimit = s.speedLimit;
     }
+    const street = s.streetName ?? '';
+    if (street !== this.lastStreet) {
+      this.lastStreet = street;
+      this.streetLabel.textContent = street;
+      this.streetLabel.hidden = street === '';
+    }
     if (this.mapRoads && this.sim.mode === 'live') {
       // 1 map unit ≈ 2.4 m; the pattern repeats every 400 units so the scroll can wrap.
-      const travelled = this.sim.liveWorld?.egoS ?? 0;
+      const lw = this.sim.liveWorld;
+      const travelled = lw instanceof LiveWorld ? lw.egoS : lw instanceof MapWorld ? lw.time * 8 : 0;
       const offset = (travelled / 2.4) % 400;
       this.mapRoads.setAttribute('transform', `translate(0 ${offset.toFixed(1)})`);
     }
@@ -388,6 +412,8 @@ class App {
       trajectory: this.sim.corridorVisible,
       source: this.sourceKind,
       cars: this.vehicleStyle,
+      world: this.worldKind,
+      mapAvailable: Simulation.defaultNetwork !== null,
     });
   }
 
@@ -450,6 +476,20 @@ class App {
     setTimeout(() => ext.restoreContext(), 1500);
   }
 
+  /** Download the loaded map network as OpenDRIVE (for CARLA / esmini / MetaDrive). */
+  private async exportOpenDrive(): Promise<void> {
+    const net = Simulation.defaultNetwork;
+    if (!net) return;
+    const { exportOpenDrive } = await import('./world/map/xodr');
+    const xml = exportOpenDrive(net);
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${net.name}.xodr`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+
   private snapshot(): void {
     if (!this.renderer) return;
     this.renderer.render();
@@ -477,6 +517,19 @@ function describe(err: unknown): string {
   return String(err);
 }
 
+// Load the real-map network (served by the app itself) before the first frame; fall back to the
+// procedural world if it is missing or slow.
+const mapName = params.get('map') ?? 'berlin-prenzlauer-berg';
+if (params.get('world') !== 'generated') {
+  try {
+    Simulation.defaultNetwork = await Promise.race([
+      loadMapNetwork(mapName),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('map load timed out')), 8000)),
+    ]);
+  } catch (err) {
+    console.warn('map unavailable, using the generated world:', err);
+  }
+}
 const app = new App();
 app.start();
 // Debug handle for browser-based verification (read-only use intended).

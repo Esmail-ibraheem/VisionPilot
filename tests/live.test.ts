@@ -97,8 +97,8 @@ describe('live world', () => {
   });
 
   it('drives through turns, stops at red lights and never collides', () => {
-    const sim = new Simulation({ mode: 'live' });
-    const world = sim.liveWorld!;
+    const sim = new Simulation({ mode: 'live', world: 'generated' });
+    const world = sim.liveWorld as import('../src/world/live').LiveWorld;
     let headings = new Set<number>();
     let minSpeed = Infinity;
     let maxSpeed = 0;
