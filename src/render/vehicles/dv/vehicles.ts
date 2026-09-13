@@ -1,7 +1,8 @@
 /**
- * Vehicle models taken verbatim (apart from the type import and the removal of the pedestrian)
- * from the sibling project `driving-visualization/lib/driving/vehicles.ts`, so its car visuals can be
- * used in this app. Conventions of the original: forward is -Z, yaw in radians, metres.
+ * Vehicle models taken from the sibling project `driving-visualization/lib/driving/vehicles.ts`
+ * so its car visuals can be used in this app. Changes from the original: the type import, the
+ * pedestrian removed, and the paint / glass colours lightened to match the reference photo's pale
+ * gray perception vehicles. Conventions of the original: forward is -Z, yaw in radians, metres.
  * `dvTemplate.ts` adapts the output to this app's +Z-forward vehicle frame and merges the meshes.
  */
 import * as THREE from 'three';
@@ -40,13 +41,13 @@ function round(w:number,h:number,l:number,r:number,m:THREE.Material){return mesh
 function makeVehicle(type:VehicleType){
  const s=specs[type],ego=type==='ego',van=type==='van';
  const group=new THREE.Group();group.name=type;
- const paint=mat(ego?'#11171b':van?'#a7a8a4':'#adaeaa',ego?.3:.88,ego?.33:.035);
- const glass=mat(ego?'#192327':'#7c817e',ego?.19:.56,ego?.38:.04);
+ const paint=mat(ego?'#11171b':van?'#c3c4c0':'#c8c9c5',ego?.3:.88,ego?.33:.035);
+ const glass=mat(ego?'#192327':'#8f938f',ego?.19:.56,ego?.38:.04);
  glass.side=THREE.DoubleSide;
  const rubber=mat(ego?'#171a1c':'#494d4b');
- const trim=mat(ego?'#b5bfbc':'#9b9e9a',ego?.31:.8,ego?.66:.08);
- const rim=mat(ego?'#666e71':'#8a8e8a',.55,.22);
- const recess=mat(ego?'#080e12':'#707773');
+ const trim=mat(ego?'#b5bfbc':'#aeb1ad',ego?.31:.8,ego?.66:.08);
+ const rim=mat(ego?'#666e71':'#9a9e9a',.55,.22);
+ const recess=mat(ego?'#080e12':'#858b87');
  const headlight=mat(ego?'#dde3db':'#c5c7bf',.5,.05);
  const tail=mat(ego?'#612525':'#a36061',.55);
  const belt=s.belt/.97,half=s.length/2;

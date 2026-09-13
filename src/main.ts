@@ -1,7 +1,7 @@
 import { SceneRenderer, DEFAULT_RIG, type CameraRig } from './render/SceneRenderer';
 import { Simulation, type SimMode } from './world/simulation';
 import { DevPanel, type AppMode, type PerceptionParams, type SourceKind } from './ui/devPanel';
-import { bindMediaPanel, updateHudScale } from './ui/hud';
+import { updateHudScale } from './ui/hud';
 import { PerceptionMode } from './perception/perception';
 import { FileSource, SyntheticSource, WebcamSource, type FrameSource } from './perception/sources';
 import type { VehicleStyle } from './render/vehicles/buildVehicle';
@@ -30,14 +30,12 @@ class App {
   private renderer: SceneRenderer | null = null;
   private rig = rigFromParams();
   private devPanel: DevPanel;
-  private media: ReturnType<typeof bindMediaPanel>;
   private raf = 0;
   private lastTime = 0;
   private contextLost = false;
   private frames = 0;
   private fpsTime = 0;
   private fps = 0;
-  private mediaProgress = 0.48;
   private perception = new PerceptionMode();
   private perceptionParams: PerceptionParams;
   private appMode: AppMode = 'live';
@@ -115,14 +113,6 @@ class App {
     if (params.get('dev') === '1') this.devPanel.setOpen(true);
     this.startInPerception = requestedApp === 'perception';
 
-    this.media = bindMediaPanel(document.querySelector('.panel.media') as HTMLElement, {
-      toggle: () => this.togglePause(),
-      nudge: (seconds) => {
-        this.mediaProgress = Math.min(0.98, Math.max(0.02, this.mediaProgress + seconds / 3600));
-        this.updateMediaProgress();
-      },
-    });
-
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('keydown', (e) => this.onKey(e));
     canvas.addEventListener('webglcontextlost', (e) => {
@@ -154,7 +144,6 @@ class App {
       this.renderer.render();
       errorBox.hidden = true;
       this.syncPanel();
-      this.updateMediaProgress();
       this.lastTime = performance.now();
       cancelAnimationFrame(this.raf);
       this.raf = requestAnimationFrame((t) => this.frame(t));
@@ -189,10 +178,6 @@ class App {
       } else {
         this.sim.step(dt);
         this.lastState = this.sim.state;
-      }
-      if (this.isPlaying()) {
-        this.mediaProgress = Math.min(0.98, this.mediaProgress + (dt * this.sim.speedFactor) / 3600);
-        this.updateMediaProgress();
       }
       this.renderer.update(this.lastState);
       this.renderer.render();
@@ -238,11 +223,6 @@ class App {
   private hideEgo = false;
 
   private startInPerception = false;
-
-  private isPlaying(): boolean {
-    if (this.appMode === 'perception') return this.perception.active && !this.perceptionPaused;
-    return this.sim.mode === 'live' && !this.sim.paused;
-  }
 
   private async setMode(mode: AppMode): Promise<void> {
     if (mode === 'perception') {
@@ -371,8 +351,6 @@ class App {
       this.sim.reset();
       this.sim.paused = false;
     }
-    this.mediaProgress = 0.48;
-    this.updateMediaProgress();
     this.syncPanel();
   }
 
@@ -411,13 +389,6 @@ class App {
       source: this.sourceKind,
       cars: this.vehicleStyle,
     });
-    this.media.setPlaying(this.isPlaying() || (this.sim.mode === 'reference' && !this.sim.paused));
-  }
-
-  private updateMediaProgress(): void {
-    const pct = `${(this.mediaProgress * 100).toFixed(2)}%`;
-    (document.querySelector('.progress-fill') as HTMLElement).style.width = pct;
-    (document.querySelector('.progress-dot') as HTMLElement).style.left = pct;
   }
 
   private onKey(e: KeyboardEvent): void {

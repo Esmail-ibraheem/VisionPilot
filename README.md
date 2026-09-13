@@ -2,7 +2,9 @@
 
 An interactive 3D recreation of the Tesla Model 3/Y driving-visualization screen: pale gray
 perception world, elevated long-lens rear camera, black ego car, simplified gray vehicles, lane
-markings, a pedestrian, and the HTML/CSS instrument, media, navigation and dock overlays.
+markings, pedestrians, and the HTML/CSS instrument cluster, status icons and mini-map. (The media,
+navigation and dock overlays of the original photo were removed on request — the screen is the
+driving visualization itself.)
 
 Everything renders from a real Three.js scene (vehicles, wheels, pedestrians and lane geometry are
 3D objects in world coordinates). The rendering library is bundled from `node_modules`; all vehicle
@@ -78,8 +80,7 @@ brake lights work). `loft` selects this app's own cross-section lofts.
 Other controls: Pause / Resume, Reset, speed factor 0.25×–3×, planned-path corridor on/off, camera
 rig sliders (fov / back / height / ahead / lateral / fog), "Simulate context loss", "Save frame PNG".
 Keyboard: `Space` pause/resume, `R` reset, `L` live/reference, `P` perception, `T` corridor,
-`[` / `]` speed, `D` panel. The media panel's pause/play button also pauses the demo; ±15 s nudge the
-(simulated) podcast progress. Nothing is connected to real vehicle, navigation or audio services.
+`[` / `]` speed, `D` panel. Nothing is connected to real vehicle or navigation services.
 
 `prefers-reduced-motion: reduce` keeps the scene frozen until the live demo is explicitly started.
 
