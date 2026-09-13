@@ -1,5 +1,6 @@
 import type { CameraRig } from '../render/SceneRenderer';
 import type { CameraModel } from '../perception/projection';
+import type { VehicleStyle } from '../render/vehicles/buildVehicle';
 
 export type AppMode = 'live' | 'reference' | 'perception';
 export type SourceKind = 'synthetic' | 'file' | 'webcam';
@@ -11,6 +12,7 @@ export interface PerceptionParams extends CameraModel {
 export interface DevPanelHandlers {
   setMode(mode: AppMode): void;
   setSource(kind: SourceKind): void;
+  setVehicleStyle(style: VehicleStyle): void;
   fileChosen(file: File): void;
   onPerceptionChange(): void;
   togglePause(): void;
@@ -28,6 +30,7 @@ export interface DevPanelState {
   speed: number;
   trajectory: boolean;
   source: SourceKind;
+  cars: VehicleStyle;
 }
 
 const PERCEPTION_FIELDS: Array<{ key: keyof PerceptionParams; label: string; min: number; max: number; step: number }> = [
@@ -69,6 +72,9 @@ export class DevPanel {
     }
     for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="source"]')) {
       radio.addEventListener('change', () => radio.checked && handlers.setSource(radio.value as SourceKind));
+    }
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="cars"]')) {
+      radio.addEventListener('change', () => radio.checked && handlers.setVehicleStyle(radio.value as VehicleStyle));
     }
     const fileInput = document.getElementById('dev-video-file') as HTMLInputElement;
     fileInput.addEventListener('change', () => {
@@ -141,6 +147,9 @@ export class DevPanel {
     this.pauseBtn.disabled = state.mode === 'reference';
     for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="source"]')) {
       radio.checked = radio.value === state.source;
+    }
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="cars"]')) {
+      radio.checked = radio.value === state.cars;
     }
     this.speedInput.value = String(state.speed);
     this.speedVal.textContent = `${state.speed.toFixed(2).replace(/\.?0+$/, '')}×`;

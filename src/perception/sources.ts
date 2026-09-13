@@ -1,4 +1,5 @@
 import { SceneRenderer } from '../render/SceneRenderer';
+import type { VehicleStyle } from '../render/vehicles/buildVehicle';
 import { Simulation } from '../world/simulation';
 import type { WorldState } from '../world/types';
 
@@ -35,12 +36,12 @@ export class SyntheticSource implements FrameSource {
   readonly sim: Simulation;
   private renderer: SceneRenderer;
 
-  constructor(hfovDeg: number) {
+  constructor(hfovDeg: number, vehicleStyle: VehicleStyle = 'dv') {
     this.element = document.createElement('canvas');
     this.element.width = SYN_W;
     this.element.height = SYN_H;
     this.sim = new Simulation({ mode: 'live', liveCorridor: false });
-    this.renderer = new SceneRenderer(this.element, { fov: verticalFov(hfovDeg, SYN_W / SYN_H) });
+    this.renderer = new SceneRenderer(this.element, { fov: verticalFov(hfovDeg, SYN_W / SYN_H) }, vehicleStyle);
     this.renderer.dashcam = { height: 1.32, forward: 0.9 };
     this.renderer.showEgo = false;
     this.renderer.resize(SYN_W, SYN_H);

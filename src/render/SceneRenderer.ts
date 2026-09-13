@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { WorldState } from '../world/types';
-import { VehicleObject, PALETTE, disposeVehicleTemplates } from './vehicles/buildVehicle';
+import { VehicleObject, PALETTE, disposeVehicleTemplates, type VehicleStyle } from './vehicles/buildVehicle';
 import { PedestrianObject } from './pedestrian';
 import { LaneMarkings, PathRibbon, createGround } from './ground';
 import { PropsRenderer } from './props';
@@ -47,6 +47,7 @@ export class SceneRenderer {
   showEgo = true;
   /** When set, the camera sits at the ego's windshield looking forward (synthetic front camera). */
   dashcam: { height: number; forward: number } | null = null;
+  private vehicleStyle: VehicleStyle;
   private vehicles = new Map<string, VehicleObject>();
   private pedestrians = new Map<string, PedestrianObject>();
   private ego: VehicleObject;
@@ -58,8 +59,9 @@ export class SceneRenderer {
   private width = 1;
   private height = 1;
 
-  constructor(canvas: HTMLCanvasElement, rig: Partial<CameraRig> = {}) {
+  constructor(canvas: HTMLCanvasElement, rig: Partial<CameraRig> = {}, vehicleStyle: VehicleStyle = 'dv') {
     this.rig = { ...DEFAULT_RIG, ...rig };
+    this.vehicleStyle = vehicleStyle;
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
@@ -95,7 +97,26 @@ export class SceneRenderer {
     this.scene.add(this.props.group);
     this.scene.add(this.ribbon.mesh);
 
-    this.ego = new VehicleObject('ego');
+    this.ego = new VehicleObject('ego', this.vehicleStyle);
+    this.scene.add(this.ego.group);
+  }
+
+  get style(): VehicleStyle {
+    return this.vehicleStyle;
+  }
+
+  /** Switch car models; pooled vehicles are rebuilt on the next update. */
+  setVehicleStyle(style: VehicleStyle): void {
+    if (style === this.vehicleStyle) return;
+    this.vehicleStyle = style;
+    for (const v of this.vehicles.values()) {
+      this.scene.remove(v.group);
+      v.dispose();
+    }
+    this.vehicles.clear();
+    this.scene.remove(this.ego.group);
+    this.ego.dispose();
+    this.ego = new VehicleObject('ego', style);
     this.scene.add(this.ego.group);
   }
 
@@ -129,7 +150,7 @@ export class SceneRenderer {
       seen.add(v.id);
       let obj = this.vehicles.get(v.id);
       if (!obj) {
-        obj = new VehicleObject(v.type);
+        obj = new VehicleObject(v.type, this.vehicleStyle);
         obj.setTint(v.tint);
         this.vehicles.set(v.id, obj);
         this.scene.add(obj.group);

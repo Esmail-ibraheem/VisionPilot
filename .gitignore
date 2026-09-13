@@ -2,3 +2,5 @@ node_modules
 dist
 screenshots/probe*.png
 screenshots/frame.b64
+# sibling project (only its vehicles.ts was copied into src/render/vehicles/dv/)
+driving-visualization/

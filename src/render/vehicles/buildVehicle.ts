@@ -3,6 +3,13 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { buildBodyGeometry, monotoneCurve, type BodySpec } from './loft';
 import { BODY_SPECS, type BodyKind } from './specs';
 import { createBlobShadowTexture } from '../blobShadow';
+import { disposeDvTemplates, getDvTemplate } from './dvTemplate';
+
+/**
+ * Vehicle look: 'dv' = the car models from the sibling `driving-visualization` project (default),
+ * 'loft' = this app's own cross-section lofts.
+ */
+export type VehicleStyle = 'dv' | 'loft';
 
 /** Palette for the simplified "perception" look. */
 export const PALETTE = {
@@ -141,15 +148,45 @@ export function getSharedVehicleMaterials(): typeof sharedMaterials {
 export class VehicleObject {
   readonly group = new THREE.Group();
   readonly kind: BodyKind;
-  private bodyMaterial: THREE.MeshStandardMaterial;
+  readonly style: VehicleStyle;
+  private bodyMaterial: THREE.MeshStandardMaterial | null = null;
   private tailMaterial: THREE.MeshStandardMaterial;
+  private tailOffColor = PALETTE.taillightOff;
   private shadowMaterial: THREE.MeshBasicMaterial;
   private brake = false;
 
-  constructor(kind: BodyKind) {
+  constructor(kind: BodyKind, style: VehicleStyle = 'dv') {
     this.kind = kind;
-    const t = getTemplate(kind);
+    this.style = style;
     const isEgo = kind === 'ego';
+    if (style === 'dv') {
+      const dv = getDvTemplate(kind);
+      for (const p of dv.parts) this.group.add(new THREE.Mesh(p.geometry, p.material));
+      if (dv.tail) {
+        this.tailMaterial = dv.tail.material.clone();
+        this.tailOffColor = dv.tail.material.color.getHex();
+        this.tailMaterial.emissive = new THREE.Color(PALETTE.taillightOn);
+        this.tailMaterial.emissiveIntensity = 0;
+        this.group.add(new THREE.Mesh(dv.tail.geometry, this.tailMaterial));
+      } else {
+        this.tailMaterial = new THREE.MeshStandardMaterial({ color: PALETTE.taillightOff });
+      }
+      this.shadowMaterial = new THREE.MeshBasicMaterial({
+        map: getBlobTexture(),
+        transparent: true,
+        depthWrite: false,
+        opacity: isEgo ? 0.45 : 0.34,
+        color: 0x000000,
+      });
+      const shadowGeo = new THREE.PlaneGeometry(dv.width + 0.6, dv.length + 0.5);
+      shadowGeo.rotateX(-Math.PI / 2);
+      const shadow = new THREE.Mesh(shadowGeo, this.shadowMaterial);
+      shadow.position.y = 0.01;
+      shadow.renderOrder = -1;
+      this.group.add(shadow);
+      return;
+    }
+    const t = getTemplate(kind);
 
     this.bodyMaterial = isEgo
       ? sharedMaterials.egoBody
@@ -197,20 +234,24 @@ export class VehicleObject {
     if (on === this.brake) return;
     this.brake = on;
     this.tailMaterial.emissiveIntensity = on ? 0.75 : 0;
-    this.tailMaterial.color.setHex(on ? 0xd02020 : PALETTE.taillightOff);
+    this.tailMaterial.color.setHex(on ? 0xd02020 : this.tailOffColor);
   }
 
   /** 0..1 → slightly darker .. slightly lighter gray. */
   setTint(t: number): void {
-    if (this.kind === 'ego') return;
+    if (this.kind === 'ego' || !this.bodyMaterial) return;
     const l = 0.76 + (t - 0.5) * 0.08;
     this.bodyMaterial.color.setHSL(0, 0, l);
   }
 
   dispose(): void {
-    if (this.kind !== 'ego') this.bodyMaterial.dispose();
+    if (this.kind !== 'ego' && this.bodyMaterial) this.bodyMaterial.dispose();
     this.tailMaterial.dispose();
     this.shadowMaterial.dispose();
+    if (this.style === 'dv') {
+      // the shadow plane is per instance in this style
+      for (const o of this.group.children) if (o instanceof THREE.Mesh && o.material === this.shadowMaterial) o.geometry.dispose();
+    }
   }
 }
 
@@ -227,4 +268,5 @@ export function disposeVehicleTemplates(): void {
   templates.clear();
   blobTexture?.dispose();
   blobTexture = null;
+  disposeDvTemplates();
 }

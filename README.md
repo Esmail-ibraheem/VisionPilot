@@ -13,6 +13,8 @@ CDNs and needs no downloaded assets**.
 
 ![reference mode](screenshots/reference.png)
 
+Reference mode with this app's own loft models instead (`?cars=loft`): `screenshots/reference-loft.png`.
+
 ## Run it
 
 ```bash
@@ -66,6 +68,13 @@ through the network), **Video file** (pick a dashcam `.mp4`; it never leaves you
 assume when the source has no odometry. Lane lines in perception mode are *assumed straight* — lane
 detection is not part of this pipeline.
 
+**Car models.** Two sets are included and switchable in the developer panel (or `?cars=dv|loft`):
+the default is the vehicle set from the sibling `driving-visualization` project (its
+`lib/driving/vehicles.ts`, copied verbatim into `src/render/vehicles/dv/` — sculpted bodies with
+compound-curved glass, door seams, fender lips, five-spoke wheels), adapted by `dvTemplate.ts` to this
+app's +Z-forward frame and merged per material (≈ 9 draw calls per car; tail lamps stay separate so
+brake lights work). `loft` selects this app's own cross-section lofts.
+
 Other controls: Pause / Resume, Reset, speed factor 0.25×–3×, planned-path corridor on/off, camera
 rig sliders (fov / back / height / ahead / lateral / fog), "Simulate context loss", "Save frame PNG".
 Keyboard: `Space` pause/resume, `R` reset, `L` live/reference, `P` perception, `T` corridor,
@@ -99,7 +108,8 @@ src/
     perception.ts     the async detection loop and the WorldState it produces each frame
   render/
     SceneRenderer.ts  Three.js scene, chase / dashcam camera rigs, lights, fog; update(state)
-    vehicles/         procedural lofted bodies (loft.ts, specs.ts) + assembly (buildVehicle.ts)
+    vehicles/         car models: dv/ (driving-visualization set, default) adapted by dvTemplate.ts,
+                      plus this app's lofts (loft.ts, specs.ts); assembly in buildVehicle.ts
     ground.ts         polyline markings, zebra crossings, arrows, the curved path ribbon
     props.ts          traffic signals and stop signs; pedestrian.ts, environment.ts, blobShadow.ts
   ui/                 HUD scaling + developer panel

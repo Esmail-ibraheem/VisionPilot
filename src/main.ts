@@ -4,6 +4,7 @@ import { DevPanel, type AppMode, type PerceptionParams, type SourceKind } from '
 import { bindMediaPanel, updateHudScale } from './ui/hud';
 import { PerceptionMode } from './perception/perception';
 import { FileSource, SyntheticSource, WebcamSource, type FrameSource } from './perception/sources';
+import type { VehicleStyle } from './render/vehicles/buildVehicle';
 import type { WorldState } from './world/types';
 
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -48,6 +49,8 @@ class App {
   private pipBoxes = this.pip.querySelector('.pip-boxes') as HTMLCanvasElement;
   private pipStats = document.getElementById('pip-stats') as HTMLElement;
   private perceptionPaused = false;
+  /** Car models: the sibling project's (`dv`, default) or this app's lofts (`?cars=loft`). */
+  private vehicleStyle: VehicleStyle = params.get('cars') === 'loft' ? 'loft' : 'dv';
 
   constructor() {
     const requestedApp = params.get('mode');
@@ -70,7 +73,11 @@ class App {
       for (let t = 0; t < skip; t += step) this.sim.step(step);
     }
     const probe = params.get('probe');
-    if (probe) this.applyProbe(probe);
+    if (probe) {
+      this.sim.setMode('reference'); // probes are static
+      this.appMode = 'reference';
+      this.applyProbe(probe);
+    }
 
     this.lastState = this.sim.state;
     this.devPanel = new DevPanel(this.rig, this.perceptionParams, {
@@ -78,6 +85,11 @@ class App {
       setSource: (kind) => {
         this.sourceKind = kind;
         if (this.appMode === 'perception') void this.startPerception();
+      },
+      setVehicleStyle: (style) => {
+        this.vehicleStyle = style;
+        this.renderer?.setVehicleStyle(style);
+        this.syncPanel();
       },
       fileChosen: (file) => {
         this.pendingFile = file;
@@ -135,7 +147,7 @@ class App {
         this.failOnce = false;
         throw new Error('Simulated renderer failure (dev flag simulateError=1)');
       }
-      if (!this.renderer) this.renderer = new SceneRenderer(canvas, this.rig);
+      if (!this.renderer) this.renderer = new SceneRenderer(canvas, this.rig, this.vehicleStyle);
       this.renderer.showEgo = !this.hideEgo;
       this.resize();
       this.renderer.update(this.lastState);
@@ -268,11 +280,11 @@ class App {
         if (!this.pendingFile) {
           this.pipStats.textContent = 'choose a video file in the developer panel';
           this.devPanel.setOpen(true);
-          source = new SyntheticSource(this.perceptionParams.hfovDeg);
+          source = new SyntheticSource(this.perceptionParams.hfovDeg, this.vehicleStyle);
           this.sourceKind = 'synthetic';
         } else source = new FileSource(this.pendingFile);
       } else {
-        source = new SyntheticSource(this.perceptionParams.hfovDeg);
+        source = new SyntheticSource(this.perceptionParams.hfovDeg, this.vehicleStyle);
       }
       this.applyPerceptionParams();
       this.pipFrame.replaceChildren(source.element);
@@ -397,6 +409,7 @@ class App {
       speed: this.sim.speedFactor,
       trajectory: this.sim.corridorVisible,
       source: this.sourceKind,
+      cars: this.vehicleStyle,
     });
     this.media.setPlaying(this.isPlaying() || (this.sim.mode === 'reference' && !this.sim.paused));
   }
