@@ -1623,6 +1623,7 @@ class Controls{
     }
 
     #addKeyboardListeners(){
+        if(typeof document==="undefined"){return;}
         document.onkeydown=(event)=>{
             switch(event.key){
                 case "ArrowLeft":

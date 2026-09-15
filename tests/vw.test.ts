@@ -49,13 +49,31 @@ describe('VirtualWorldSim', () => {
     expect(start.directionVector.x).toBeLessThan(0);
     expect(s0.ego.x).toBeCloseTo(start.center.x * PX_TO_M, 3);
     expect(Math.abs(s0.ego.heading - Math.PI / 2)).toBeLessThan(0.05);
+    // sensor rays are hidden by default; the blue path ribbon follows the lane ahead of the ego
+    expect(s0.rays).toHaveLength(0);
+    expect(s0.trajectory.visible).toBe(true);
+    expect(s0.route.points.length).toBeGreaterThan(20);
+    expect(s0.route.points[0].x).toBeCloseTo(s0.ego.x, 1);
+    expect(s0.route.points[0].z).toBeCloseTo(s0.ego.z, 1);
+    const far = s0.route.points[s0.route.points.length - 1];
+    expect(far.x - s0.ego.x).toBeGreaterThan(40); // ~46 m ahead, travelling +x
 
     const lightStates = new Set<string>();
     let maxFitness = 0;
     let trafficDamaged = 0;
+    let overlaps = 0;
     for (let i = 0; i < 60 * 20; i++) {
       sim.step(1 / 60);
       const s = sim.toState(base);
+      // solid bodies: traffic never passes through other traffic, parked cars or the ego
+      const parkedPolys = (sim as unknown as { staticObstacles: Array<{ polygon: vw.VwPoint[] }> }).staticObstacles.map((o) => o.polygon);
+      const solids = [...sim.traffic.map((t) => t.car.polygon!), ...parkedPolys];
+      for (let a = 0; a < sim.traffic.length; a++) {
+        for (let b = 0; b < solids.length; b++) {
+          if (solids[b] === sim.traffic[a].car.polygon) continue;
+          if (vw.polysIntersect(sim.traffic[a].car.polygon!, solids[b])) overlaps++;
+        }
+      }
       for (const l of s.props.trafficLights) lightStates.add(l.state);
       maxFitness = Math.max(maxFitness, sim.stats().bestFitness);
       trafficDamaged += sim.traffic.filter((t) => t.car.damaged).length;
@@ -64,9 +82,32 @@ describe('VirtualWorldSim', () => {
     expect(lightStates).toEqual(new Set(['red', 'green', 'yellow']));
     expect(maxFitness).toBeGreaterThan(0); // cars moved
     expect(trafficDamaged).toBe(0); // the lane-guide followers stay on the road
+    expect(overlaps).toBe(0);
     expect(sim.traffic.length).toBeGreaterThan(3);
     // traffic keeps moving (not all stuck)
     expect(sim.traffic.some((t) => t.car.speed > 0.5)).toBe(true);
+  });
+
+  it('stops the manual car at obstacles instead of driving through them', () => {
+    const sim = new VirtualWorldSim(load(), { populationSize: 2, trafficCount: 0 });
+    sim.setMode('manual');
+    const car = sim.egoCar()!;
+    // drive straight into a parked car placed on the ego's path
+    const parked = sim.world.markings.find((m) => m.type === 'parking')!;
+    car.x = parked.center.x - 120;
+    car.y = parked.center.y;
+    car.angle = -Math.PI / 2; // travel +x (upstream: forward = (-sin a, -cos a))
+    car.controls.forward = true;
+    for (let i = 0; i < 60 * 6; i++) sim.step(1 / 60);
+    expect(sim.bumped).toBe(true);
+    expect(car.damaged).toBe(false); // bump, not a frozen crash
+    expect(car.speed).toBe(0);
+    expect(car.x).toBeLessThan(parked.center.x - 45); // stopped short of the parked car
+    // and can back away again
+    car.controls.forward = false;
+    car.controls.reverse = true;
+    for (let i = 0; i < 60; i++) sim.step(1 / 60);
+    expect(car.x).toBeLessThan(parked.center.x - 60);
   });
 
   it('advances generations automatically and keeps the best brain', () => {

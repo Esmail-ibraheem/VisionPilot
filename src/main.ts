@@ -56,7 +56,7 @@ class App {
   private vehicleStyle: VehicleStyle = params.get('cars') === 'loft' ? 'loft' : 'dv';
   private worldKind: WorldKind;
   private vwEditor: VwEditorPanel | null = null;
-  private vwFlags = { sensors: true, population: false, network: true };
+  private vwFlags = { sensors: false, population: false, network: true };
   private vwMinimap: { canvas: HTMLCanvasElement; map: InstanceType<typeof vw.MiniMap> | null } = { canvas: document.getElementById('vw-minimap') as HTMLCanvasElement, map: null };
   private vwHud = document.getElementById('vw-hud') as HTMLElement;
   private vwNetwork = document.getElementById('vw-network') as HTMLCanvasElement;
@@ -495,7 +495,7 @@ class App {
       const st = v.stats();
       this.vwStatus.textContent =
         st.mode === 'manual'
-          ? `MANUAL · arrow keys · ${st.damaged ? 'CRASHED — press R' : 'driving'}`
+          ? `MANUAL · arrow keys · ${v.bumped ? 'bumped — back away or press R' : 'driving'}`
           : `GEN ${st.generation} · ${st.alive}/${st.total} ALIVE · FITNESS ${st.bestFitness.toFixed(0)} · SAVED ${st.savedFitness.toFixed(0)}`;
     }
   }

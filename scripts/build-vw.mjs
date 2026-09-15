@@ -76,6 +76,8 @@ const patches = [
   ["new Segment(this.selected, intent).draw(ctx, { dash: [3, 3] });", "new Segment(this.selected, intent).draw(this.ctx, { dash: [3, 3] });"],
   // Car builds an <img>/<canvas> for its 2D sprite; skip that outside a browser (tests) — the app renders cars itself.
   ["        this.img=new Image();\n        this.img.src=\"car.png\"\n\n        this.mask=document.createElement(\"canvas\");", "        if(typeof document===\"undefined\"){return;}\n        this.img=new Image();\n        this.img.src=\"car.png\"\n\n        this.mask=document.createElement(\"canvas\");"],
+  // Controls('KEYS') binds document.onkeydown; skip outside a browser (tests drive the controls directly).
+  ["    #addKeyboardListeners(){\n        document.onkeydown=(event)=>{", "    #addKeyboardListeners(){\n        if(typeof document===\"undefined\"){return;}\n        document.onkeydown=(event)=>{"],
   // Start marking loads its sprite eagerly; same guard.
   ["      this.img = new Image();\n      this.img.src = \"car.png\";\n      this.type = \"start\";", "      this.type = \"start\";\n      if (typeof document === \"undefined\") return;\n      this.img = new Image();\n      this.img.src = \"car.png\";"],
 ];

@@ -3,6 +3,7 @@
  *
  *   node scripts/screenshot.mjs [--url http://127.0.0.1:5180/] [--out screenshots/reference.png]
  *                               [--width 1200] [--height 791] [--query "mode=live"] [--wait 1500]
+ *                               [--setup "<js run after load>"] [--eval "<js run after the shot>"]
  *
  * Also prints console errors and any non-same-origin network requests, so it doubles as a check
  * that the app is fully self-contained.
@@ -92,6 +93,8 @@ try {
     if (u.origin !== url.origin && !u.protocol.startsWith('data')) external.push(r.url());
   });
   await page.goto(url.toString(), { waitUntil: 'load', timeout: 60000 });
+  // --setup "<js>": evaluated right after load, before the wait (e.g. put the sim into a scenario)
+  if (args.setup) await page.evaluate(args.setup);
   await new Promise((r) => setTimeout(r, wait));
   const info = await page.evaluate(() => {
     const c = document.getElementById('scene');
