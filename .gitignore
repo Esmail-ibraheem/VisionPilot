@@ -1,6 +1,5 @@
 node_modules
 dist
-exports
 screenshots/probe*.png
 screenshots/frame.b64
 # sibling project (only its vehicles.ts was copied into src/render/vehicles/dv/)

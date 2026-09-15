@@ -123,11 +123,6 @@ export interface WorldState {
   /** Planned path ahead of the ego (world points), drawn as the blue corridor when visible. */
   route: { points: Array<{ x: number; z: number }> };
   trajectory: Trajectory;
-  /** Name of the street the ego is on (map worlds). */
-  streetName?: string;
-  /** Static building footprints (map worlds); the renderer rebuilds when `mapId` changes. */
-  buildings?: Array<{ id: string; polygon: Array<{ x: number; z: number }>; height: number }>;
-  mapId?: string;
 }
 
 export const DEG = Math.PI / 180;

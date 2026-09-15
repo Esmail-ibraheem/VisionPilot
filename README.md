@@ -89,43 +89,6 @@ deterministic, handy for screenshots), `?speed=2`, `?corridor=0`, `?hud=0`, `?de
 `?tfBackend=webgl|cpu`, camera overrides such as `?fov=27.4&back=43.6&height=13.1&ahead=6.5`,
 `?probe=sedan|crossover|van|ego&yaw=145` (single-model viewer), `?simulateError=1`.
 
-## Real-map world: Berlin (step 1 of the training-environment plan)
-
-Live mode now drives a **real road network built from OpenStreetMap**: Prenzlauer Berg around
-Kollwitzplatz (≈ 1.4 × 1.4 km, `public/maps/berlin-prenzlauer-berg.json`, ODbL — see
-`public/maps/LICENSE.txt`). The extract is fetched once with `scripts/fetch-osm.mjs` (Overpass API)
-and served by the app itself, so runtime stays offline.
-
-What is derived from the map data (`src/world/map/`):
-
-- **Roads** — ways split at shared nodes into polyline segments (curves preserved), degree-2
-  continuations merged, ends trimmed at junctions; lane counts from `lanes`, `lanes:forward/backward`,
-  `oneway`; speed limits from `maxspeed` (30/50 zones); road class from `highway`.
-- **Junctions** — any node where segment ends meet; signalised when a `traffic_signals` node sits
-  on or within 30 m of it (two-phase cycle grouped by arm axis); otherwise priority by road class or
-  "rechts vor links" between equal streets; left turns yield to oncoming traffic.
-- **Movements** — Hermite connectors between lane ends through each junction (straight / left /
-  right classified by heading), lane choice per movement.
-- **Crossings** — `highway=crossing` nodes (zebra / signal-controlled / unmarked); pedestrians walk
-  the sidewalks and cross at them when allowed.
-- **Parking** — `parking:left/right/both` (+ orientation: parallel, diagonal, perpendicular) fill
-  the kerbside with parked cars, which is why Kollwitzstraße shows its real perpendicular rows.
-- **Buildings** — footprints (`building=*`) extruded as low slabs to show the street layout.
-- **Ego route** — a deterministic walk through the network preferring to continue straight and
-  avoiding recently visited streets; the current street name is shown on screen.
-
-Switch worlds in the developer panel (`World:`) or with `?world=generated`; another extract can be
-fetched with `node scripts/fetch-osm.mjs --name <name> --bbox S,W,N,E` and loaded via `?map=<name>`.
-
-**OpenDRIVE export** (`npx vite-node scripts/export-xodr.ts`, or the "Export OpenDRIVE" button):
-`exports/<map>.xodr` with one road per segment (polyline `line` geometry, driving lanes per
-direction, speed limits) and junctions with connecting roads per movement, so the same network can
-be loaded into CARLA, esmini or MetaDrive. Structural validity (links, ids, geometry lengths) is
-covered by tests; loading it in CARLA/esmini was not run on this machine.
-
-Known simplifications: no lane-level turn restrictions, no tram tracks, no elevation, single lane
-per movement in the export, and the visual buildings are height-capped.
-
 ## How it is built
 
 ```
@@ -137,10 +100,7 @@ src/
     network.ts        road network: legs, intersections, signal phases, turn arcs
     live.ts           the live world: ego controller, traffic (IDM car-following, lane changes,
                       signals, stop signs), parked rows, pedestrians, markings/props output
-    simulation.ts     mode orchestration (reference / live, generated ↔ map world), deterministic sub-stepping
-    map/              real-map world: osm.ts (extract + projection), polyline.ts, network.ts
-                      (segments, junctions, lanes, signals, crossings, parking), mapWorld.ts
-                      (traffic + ego on the network), xodr.ts (OpenDRIVE export), load.ts
+    simulation.ts     mode orchestration (reference / live), deterministic sub-stepping
   perception/         camera → NN → 3D
     detector.ts       COCO-SSD (SSDLite MobileNetV2) via TensorFlow.js, model served from public/
     projection.ts     box bottom-edge → ground-plane distance / lateral offset, class → body kind
@@ -190,8 +150,6 @@ merged per vehicle type (≈ 9 draw calls per vehicle).
   context loss → banner → automatic rebuild; simulated init failure → overlay → Retry recovers;
   layouts checked at 1200×791, 900×560, 480×800.
 - Screenshots in `screenshots/` are produced with `scripts/screenshot.mjs` (headless Edge).
-- Map world: `tests/map.test.ts` builds the Berlin network, checks connectors, runs 240 s of
-  traffic with no collisions, and validates the OpenDRIVE export's links and geometry.
 - Perception: `tests/perception.test.ts` covers the projection maths and the tracker. The bundled
   network was verified offline with `npm run nn-check`: it loads the local weights and runs them on a
   frame captured from the app's synthetic front camera (`screenshots/frame.b64`, produced by the

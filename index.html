@@ -34,7 +34,6 @@
         <svg class="ico lock" viewBox="0 0 12 14"><rect x="1.5" y="6" width="9" height="7" rx="1.2" fill="currentColor"/><path d="M3.5 6V4.2a2.5 2.5 0 0 1 5 0V6" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
         <span class="sos">SOS<svg viewBox="0 0 10 8"><path d="M1 7V5M3.3 7V3.5M5.6 7V2M7.9 7V.6" stroke="currentColor" stroke-width="1.3"/></svg></span>
       </div>
-      <div class="street" id="street-label" hidden></div>
 
       <!-- ─── top-right: clock, temperature, airbag ─── -->
       <div class="status-right">
@@ -105,11 +104,6 @@
         <label><input type="checkbox" id="dev-trajectory" checked /> Show planned-path corridor</label>
       </div>
       <div class="dev-row">
-        <span>World:</span>
-        <label><input type="radio" name="world" value="map" checked /> Berlin, Prenzlauer Berg (OSM)</label>
-        <label><input type="radio" name="world" value="generated" /> generated grid</label>
-      </div>
-      <div class="dev-row">
         <span>Cars:</span>
         <label><input type="radio" name="cars" value="dv" checked /> driving-visualization models</label>
         <label><input type="radio" name="cars" value="loft" /> built-in lofts</label>
@@ -132,7 +126,6 @@
       <div class="dev-row">
         <button type="button" id="dev-lose-context">Simulate context loss</button>
         <button type="button" id="dev-snapshot">Save frame PNG</button>
-        <button type="button" id="dev-export-xodr">Export OpenDRIVE (.xodr)</button>
       </div>
       <p class="dev-hint">Keys: Space pause · R reset · L live/reference · P perception · T corridor · [ ] speed · D panel</p>
       <p class="dev-hint">Demo only — no vehicle, navigation or audio services are connected.</p>
