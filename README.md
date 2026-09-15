@@ -1,4 +1,4 @@
-# Driving Visualization (Tesla-style) — Three.js recreation
+# VisionPilot — Tesla-style driving visualization (Three.js)
 
 An interactive 3D recreation of the Tesla Model 3/Y driving-visualization screen: pale gray
 perception world, elevated long-lens rear camera, black ego car, simplified gray vehicles, lane
