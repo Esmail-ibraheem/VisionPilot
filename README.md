@@ -11,7 +11,7 @@ Everything renders from a real Three.js scene (vehicles, wheels, pedestrians and
 models are generated procedurally at start-up, so the app makes **no runtime requests to third-party
 CDNs and needs no downloaded assets**.
 
-![virtual world with the editor open](screenshots/vw-editor.png)
+<img width="3804" height="1765" alt="image" src="https://github.com/user-attachments/assets/cb680624-32ea-425d-9eba-b9ea1e343e84" />
 
 ![live mode: intersection](screenshots/live-intersection.png)
 
