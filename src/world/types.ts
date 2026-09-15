@@ -46,6 +46,8 @@ export interface Marking {
   dashed: boolean;
   /** Line width, metres. */
   width: number;
+  /** When true, `points` holds independent segments as consecutive pairs (batched into one mesh). */
+  segments?: boolean;
 }
 
 /** Zebra crossing: centred at (x, z), stripes run along `heading` (the road direction). */
@@ -89,7 +91,7 @@ export interface TrafficLightState {
 
 export interface SignState {
   id: string;
-  kind: 'stop';
+  kind: 'stop' | 'yield';
   x: number;
   z: number;
   heading: number;
@@ -123,6 +125,14 @@ export interface WorldState {
   /** Planned path ahead of the ego (world points), drawn as the blue corridor when visible. */
   route: { points: Array<{ x: number; z: number }> };
   trajectory: Trajectory;
+  /** Name of the street the ego is on, when known. */
+  streetName?: string;
+  /** Static scenery (virtual worlds); the renderer rebuilds these layers when `mapId` changes. */
+  buildings?: Array<{ id: string; polygon: Array<{ x: number; z: number }>; height: number }>;
+  trees?: Array<{ id: string; x: number; z: number; size: number }>;
+  mapId?: string;
+  /** Sensor rays of the ego (virtual-world AI car), world coordinates. */
+  rays?: Array<{ x0: number; z0: number; x1: number; z1: number; hit: boolean }>;
 }
 
 export const DEG = Math.PI / 180;

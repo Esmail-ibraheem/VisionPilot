@@ -73,6 +73,13 @@
         </g>
         <path class="marker" d="M184 118 L193.5 138 L184 133 L174.5 138 Z" fill="#e0242f" stroke="#b21a24" stroke-width="0.8" stroke-linejoin="round"/>
       </svg>
+      <canvas id="vw-minimap" class="vw-minimap" width="300" height="300" hidden></canvas>
+
+      <!-- virtual-world: the best car's neural network and generation status -->
+      <div id="vw-hud" class="vw-hud" hidden>
+        <canvas id="vw-network" width="300" height="220"></canvas>
+        <div id="vw-status" class="vw-status">–</div>
+      </div>
 
     </div>
 
@@ -81,6 +88,34 @@
       <div class="pip-frame"></div>
       <canvas class="pip-boxes"></canvas>
       <div class="pip-label"><span id="pip-title">FRONT CAMERA</span><span id="pip-stats">loading model…</span></div>
+    </div>
+
+    <!-- ─── virtual-world editor (upstream editors on their own canvas) ─── -->
+    <div id="vw-editor" class="vw-editor" hidden>
+      <div class="vw-bar">
+        <span class="vw-title">World editor</span>
+        <button type="button" data-tool="graph" title="Roads (graph)">🌐</button>
+        <button type="button" data-tool="stop" title="Stop">🛑</button>
+        <button type="button" data-tool="yield" title="Yield">⚠️</button>
+        <button type="button" data-tool="crossing" title="Crossing">🚶</button>
+        <button type="button" data-tool="parking" title="Parking">🅿️</button>
+        <button type="button" data-tool="light" title="Traffic light">🚦</button>
+        <button type="button" data-tool="start" title="Start">🚙</button>
+        <button type="button" data-tool="target" title="Target">🎯</button>
+        <span class="vw-sep"></span>
+        <button type="button" id="vw-dispose" title="Clear world">🗑️</button>
+        <button type="button" id="vw-save" title="Save .world">💾</button>
+        <label class="vw-file" title="Load .world">📁<input type="file" id="vw-file" accept=".world,application/json" /></label>
+        <button type="button" id="vw-osm" title="Paste OpenStreetMap data">🗺️</button>
+        <span class="vw-sep"></span>
+        <button type="button" id="vw-close" title="Close (E)">✕</button>
+      </div>
+      <canvas id="vw-canvas" width="640" height="640"></canvas>
+      <div id="vw-osm-panel" class="vw-osm" hidden>
+        <textarea id="vw-osm-text" rows="8" placeholder="Paste Overpass JSON here"></textarea>
+        <div><button type="button" id="vw-osm-ok">✔️</button> <button type="button" id="vw-osm-cancel">❌</button></div>
+      </div>
+      <p class="vw-hint">Left click: add point / place marking · right click: remove · middle-drag: pan · wheel: zoom. Edits apply to the 3D world immediately.</p>
     </div>
 
     <!-- ─── developer panel (collapsed by default) ─── -->
@@ -103,6 +138,32 @@
       <div class="dev-row">
         <label><input type="checkbox" id="dev-trajectory" checked /> Show planned-path corridor</label>
       </div>
+      <div class="dev-row">
+        <span>World:</span>
+        <label><input type="radio" name="world" value="virtual" checked /> virtual world (editor)</label>
+        <label><input type="radio" name="world" value="generated" /> generated grid</label>
+      </div>
+      <h2>Virtual world · self-driving</h2>
+      <div class="dev-row">
+        <button type="button" id="vw-open">World editor (E)</button>
+        <button type="button" id="vw-load-default">Load default</button>
+        <button type="button" id="vw-load-big">Load big.world</button>
+      </div>
+      <div class="dev-row">
+        <label><input type="radio" name="vwmode" value="ai" checked /> AI population</label>
+        <label><input type="radio" name="vwmode" value="manual" /> Manual (arrow keys)</label>
+      </div>
+      <div class="dev-row">
+        <button type="button" id="vw-save-brain">Save brain</button>
+        <button type="button" id="vw-discard-brain">Discard brain</button>
+        <button type="button" id="vw-next-gen">Next generation</button>
+      </div>
+      <div class="dev-row">
+        <label><input type="checkbox" id="vw-show-sensors" checked /> sensors</label>
+        <label><input type="checkbox" id="vw-show-population" /> population</label>
+        <label><input type="checkbox" id="vw-show-network" checked /> network panel</label>
+      </div>
+      <div class="dev-stats" id="vw-stats">–</div>
       <div class="dev-row">
         <span>Cars:</span>
         <label><input type="radio" name="cars" value="dv" checked /> driving-visualization models</label>
@@ -127,7 +188,7 @@
         <button type="button" id="dev-lose-context">Simulate context loss</button>
         <button type="button" id="dev-snapshot">Save frame PNG</button>
       </div>
-      <p class="dev-hint">Keys: Space pause · R reset · L live/reference · P perception · T corridor · [ ] speed · D panel</p>
+      <p class="dev-hint">Keys: Space pause · R reset · L live/reference · P perception · E world editor · T corridor · [ ] speed · D panel</p>
       <p class="dev-hint">Demo only — no vehicle, navigation or audio services are connected.</p>
     </aside>
 

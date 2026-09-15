@@ -5,6 +5,11 @@ import { updateHudScale } from './ui/hud';
 import { PerceptionMode } from './perception/perception';
 import { FileSource, SyntheticSource, WebcamSource, type FrameSource } from './perception/sources';
 import type { VehicleStyle } from './render/vehicles/buildVehicle';
+import type { WorldKind } from './world/simulation';
+import { LiveWorld } from './world/live';
+import * as vw from './vw/virtual-world';
+import type { VwWorld } from './vw/virtual-world';
+import { VwEditorPanel } from './ui/vwEditor';
 import type { WorldState } from './world/types';
 
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
@@ -49,15 +54,24 @@ class App {
   private perceptionPaused = false;
   /** Car models: the sibling project's (`dv`, default) or this app's lofts (`?cars=loft`). */
   private vehicleStyle: VehicleStyle = params.get('cars') === 'loft' ? 'loft' : 'dv';
+  private worldKind: WorldKind;
+  private vwEditor: VwEditorPanel | null = null;
+  private vwFlags = { sensors: true, population: false, network: true };
+  private vwMinimap: { canvas: HTMLCanvasElement; map: InstanceType<typeof vw.MiniMap> | null } = { canvas: document.getElementById('vw-minimap') as HTMLCanvasElement, map: null };
+  private vwHud = document.getElementById('vw-hud') as HTMLElement;
+  private vwNetwork = document.getElementById('vw-network') as HTMLCanvasElement;
+  private vwStatus = document.getElementById('vw-status') as HTMLElement;
 
   constructor() {
     const requestedApp = params.get('mode');
     const requestedMode = (requestedApp === 'reference' ? 'reference' : 'live') as SimMode;
+    this.worldKind = params.get('world') === 'generated' || !Simulation.defaultVirtualWorld ? 'generated' : 'virtual';
     this.perceptionParams = { ...this.perception.camera, nominalSpeedKph: this.perception.nominalSpeedKph };
     this.sim = new Simulation({
       mode: requestedMode,
       speedFactor: Number(params.get('speed')) || 1,
       liveCorridor: params.get('corridor') !== '0',
+      world: this.worldKind,
     });
     if (requestedMode === 'live' && reducedMotion) {
       this.sim.paused = true;
@@ -87,6 +101,22 @@ class App {
       setVehicleStyle: (style) => {
         this.vehicleStyle = style;
         this.renderer?.setVehicleStyle(style);
+        this.syncPanel();
+      },
+      setWorld: (world) => {
+        if (world === 'virtual' && !Simulation.defaultVirtualWorld) return;
+        this.worldKind = world;
+        this.sim.setWorld(world);
+        this.syncPanel();
+      },
+      vw: (action) => void this.vwAction(action),
+      setVwMode: (mode) => {
+        this.sim.vw?.setMode(mode);
+        this.syncPanel();
+      },
+      setVwFlags: (flags) => {
+        this.vwFlags = flags;
+        this.applyVwFlags();
         this.syncPanel();
       },
       fileChosen: (file) => {
@@ -139,6 +169,7 @@ class App {
       }
       if (!this.renderer) this.renderer = new SceneRenderer(canvas, this.rig, this.vehicleStyle);
       this.renderer.showEgo = !this.hideEgo;
+      this.applyVwFlags();
       this.resize();
       this.renderer.update(this.lastState);
       this.renderer.render();
@@ -350,6 +381,7 @@ class App {
     } else {
       this.sim.reset();
       this.sim.paused = false;
+      this.applyVwFlags();
     }
     this.syncPanel();
   }
@@ -360,9 +392,72 @@ class App {
   private lastShownSpeed = -1;
   private lastShownLimit = -1;
 
+  private applyVwFlags(): void {
+    const v = this.sim.vw;
+    if (v) {
+      v.showSensors = this.vwFlags.sensors;
+      v.showPopulation = this.vwFlags.population;
+    }
+    this.vwHud.hidden = !(v && this.vwFlags.network && this.appMode !== 'perception');
+  }
+
+  private async vwAction(action: 'editor' | 'loadDefault' | 'loadBig' | 'saveBrain' | 'discardBrain' | 'nextGen'): Promise<void> {
+    const v = this.sim.vw;
+    switch (action) {
+      case 'editor':
+        this.toggleEditor();
+        break;
+      case 'saveBrain':
+        v?.saveBrain();
+        break;
+      case 'discardBrain':
+        v?.discardBrain();
+        break;
+      case 'nextGen':
+        v?.nextGeneration();
+        break;
+      case 'loadDefault':
+      case 'loadBig': {
+        try {
+          const world = await loadVirtualWorld(action === 'loadBig' ? 'big' : 'default');
+          this.useVirtualWorld(world);
+        } catch (err) {
+          console.warn(err);
+        }
+        break;
+      }
+    }
+    this.syncPanel();
+  }
+
+  /** Install a (new) virtual world into the simulation, the editor and the mini-map. */
+  private useVirtualWorld(world: VwWorld): void {
+    Simulation.defaultVirtualWorld = world;
+    if (this.worldKind !== 'virtual') {
+      this.worldKind = 'virtual';
+      this.sim.setWorld('virtual', world);
+    } else this.sim.replaceVirtualWorld(world);
+    this.vwEditor?.setWorld(world);
+    this.vwMinimap.map = null;
+    this.applyVwFlags();
+  }
+
+  private toggleEditor(): void {
+    const world = this.sim.vw?.world ?? Simulation.defaultVirtualWorld;
+    if (!world) return;
+    if (!this.vwEditor) {
+      this.vwEditor = new VwEditorPanel(world, {
+        changed: (w) => this.sim.vw?.setWorld(w),
+        replaced: (w) => this.useVirtualWorld(w),
+      });
+    }
+    this.vwEditor.toggle();
+  }
+
   /** Speed, posted limit and the scrolling mini-map follow the simulation. */
   private updateHud(): void {
     const s = this.lastState;
+    this.updateVwHud();
     const kph = Math.round(s.ego.speedKph);
     if (kph !== this.lastShownSpeed) {
       this.hudSpeed.textContent = String(kph);
@@ -372,11 +467,36 @@ class App {
       this.hudLimit.textContent = String(s.speedLimit);
       this.lastShownLimit = s.speedLimit;
     }
-    if (this.mapRoads && this.sim.mode === 'live') {
+    const lw = this.sim.liveWorld;
+    if (this.mapRoads && lw instanceof LiveWorld) {
       // 1 map unit ≈ 2.4 m; the pattern repeats every 400 units so the scroll can wrap.
-      const travelled = this.sim.liveWorld?.egoS ?? 0;
-      const offset = (travelled / 2.4) % 400;
+      const offset = (lw.egoS / 2.4) % 400;
       this.mapRoads.setAttribute('transform', `translate(0 ${offset.toFixed(1)})`);
+    }
+  }
+
+  private mapSvg = document.querySelector('.map') as SVGElement;
+
+  /** Virtual world: the upstream mini-map replaces the static map; the best car's network is drawn. */
+  private updateVwHud(): void {
+    const v = this.sim.vw;
+    const active = !!v && this.appMode !== 'perception';
+    this.vwMinimap.canvas.hidden = !active;
+    this.mapSvg.style.visibility = active ? 'hidden' : '';
+    if (!active || !v) return;
+    if (!this.vwMinimap.map || this.vwMinimap.map.graph !== v.world.graph) this.vwMinimap.map = new vw.MiniMap(this.vwMinimap.canvas, v.world.graph, 300);
+    const ego = v.egoCar();
+    if (ego) this.vwMinimap.map.update(new vw.Point(ego.x, ego.y));
+    if (!this.vwHud.hidden) {
+      const ctx = this.vwNetwork.getContext('2d')!;
+      ctx.lineDashOffset = -performance.now() / 50;
+      ctx.clearRect(0, 0, this.vwNetwork.width, this.vwNetwork.height);
+      if (ego?.brain) vw.Visualizer.drawNetwork(ctx, ego.brain);
+      const st = v.stats();
+      this.vwStatus.textContent =
+        st.mode === 'manual'
+          ? `MANUAL · arrow keys · ${st.damaged ? 'CRASHED — press R' : 'driving'}`
+          : `GEN ${st.generation} · ${st.alive}/${st.total} ALIVE · FITNESS ${st.bestFitness.toFixed(0)} · SAVED ${st.savedFitness.toFixed(0)}`;
     }
   }
 
@@ -388,11 +508,19 @@ class App {
       trajectory: this.sim.corridorVisible,
       source: this.sourceKind,
       cars: this.vehicleStyle,
+      world: this.worldKind,
+      vwMode: this.sim.vw?.mode ?? 'ai',
+      vwFlags: this.vwFlags,
     });
+    this.devPanel.setVwStats(this.sim.vw?.stats() ?? null);
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (e.target instanceof HTMLInputElement) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (e.key.startsWith('Arrow')) {
+      e.preventDefault(); // arrow keys drive the manual virtual-world car (upstream Controls)
+      return;
+    }
     switch (e.key) {
       case ' ':
         e.preventDefault();
@@ -400,7 +528,12 @@ class App {
         break;
       case 'r':
       case 'R':
-        this.reset();
+        if (this.sim.vw?.mode === 'manual') this.sim.vw.resetManual();
+        else this.reset();
+        break;
+      case 'e':
+      case 'E':
+        this.toggleEditor();
         break;
       case 'l':
       case 'L':
@@ -477,6 +610,28 @@ function describe(err: unknown): string {
   return String(err);
 }
 
+/** Load a virtual-world save served by the app (public/worlds/<name>.world). */
+async function loadVirtualWorld(name: string): Promise<VwWorld> {
+  const res = await fetch(new URL(`worlds/${name}.world`, document.baseURI).toString());
+  if (!res.ok) throw new Error(`world "${name}" not found (${res.status})`);
+  return vw.World.load(await res.json());
+}
+
+// The virtual world (editor world) is the default live world: a locally saved one, else the shipped
+// default. Falls back to the procedural world if it cannot be loaded.
+if (params.get('world') !== 'generated') {
+  try {
+    const stored = params.get('vworld') ? null : VwEditorPanel.storedWorld();
+    Simulation.defaultVirtualWorld =
+      stored ??
+      (await Promise.race([
+        loadVirtualWorld(params.get('vworld') ?? 'default'),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('world load timed out')), 10000)),
+      ]));
+  } catch (err) {
+    console.warn('virtual world unavailable, using the generated world:', err);
+  }
+}
 const app = new App();
 app.start();
 // Debug handle for browser-based verification (read-only use intended).

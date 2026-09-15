@@ -271,6 +271,129 @@ body {
   }
 }
 
+/* ─── virtual world: mini-map, network panel, editor overlay ─── */
+.vw-minimap {
+  position: absolute;
+  right: calc(12 * var(--s));
+  top: calc(34 * var(--s));
+  width: calc(230 * var(--s));
+  height: calc(230 * var(--s));
+  opacity: 0.9;
+}
+
+.vw-hud {
+  position: fixed;
+  right: calc(14 * var(--s));
+  bottom: calc(14 * var(--s));
+  width: calc(300 * var(--s));
+  border-radius: calc(6 * var(--s));
+  background: rgba(20, 22, 24, 0.82);
+  box-shadow: 0 calc(2 * var(--s)) calc(10 * var(--s)) rgba(0, 0, 0, 0.2);
+  padding: calc(6 * var(--s));
+  z-index: 6;
+}
+
+.vw-hud canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.vw-status {
+  margin-top: calc(4 * var(--s));
+  font-size: calc(10 * var(--s));
+  font-weight: 500;
+  letter-spacing: calc(0.4 * var(--s));
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+}
+
+.vw-editor {
+  position: fixed;
+  left: calc(14 * var(--s));
+  top: calc(222 * var(--s));
+  width: calc(660 * var(--s));
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  padding: 8px;
+  z-index: 22;
+  user-select: none;
+}
+
+.vw-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.vw-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 8px;
+  color: #333;
+}
+
+.vw-bar button,
+.vw-file {
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: #f4f4f4;
+  cursor: pointer;
+  filter: grayscale(100%);
+}
+
+.vw-bar button.active {
+  background: #fff;
+  filter: none;
+  border-color: #3b82f6;
+}
+
+.vw-bar button:hover,
+.vw-file:hover {
+  filter: none;
+}
+
+.vw-file input {
+  display: none;
+}
+
+.vw-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.15);
+  margin: 0 4px;
+}
+
+#vw-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  background: #2b3a2b;
+  border-radius: 4px;
+}
+
+.vw-osm {
+  margin-top: 6px;
+}
+
+.vw-osm textarea {
+  width: 100%;
+  font: 11px ui-monospace, Consolas, monospace;
+}
+
+.vw-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #666;
+}
+
 /* ─── perception picture-in-picture ─── */
 .pip {
   position: fixed;

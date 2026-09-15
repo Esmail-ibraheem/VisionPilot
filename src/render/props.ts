@@ -14,6 +14,7 @@ const lampOn: Record<LightColor, THREE.MeshStandardMaterial> = {
 };
 const signRed = new THREE.MeshStandardMaterial({ color: 0xd8242c, roughness: 0.6 });
 const signWhite = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 });
+const signYellowWhite = new THREE.MeshStandardMaterial({ color: 0xf6f6f2, roughness: 0.6 });
 
 let geos: {
   pole: THREE.CylinderGeometry;
@@ -21,6 +22,8 @@ let geos: {
   lamp: THREE.CylinderGeometry;
   octaW: THREE.CylinderGeometry;
   octaR: THREE.CylinderGeometry;
+  triR: THREE.CylinderGeometry;
+  triW: THREE.CylinderGeometry;
   signPole: THREE.CylinderGeometry;
 } | null = null;
 
@@ -34,12 +37,21 @@ function getGeos() {
     const octaR = new THREE.CylinderGeometry(0.33, 0.33, 0.05, 8);
     octaR.rotateX(Math.PI / 2);
     octaR.rotateZ(Math.PI / 8);
+    // yield: inverted triangle (red border, pale centre)
+    const triR = new THREE.CylinderGeometry(0.42, 0.42, 0.04, 3);
+    triR.rotateX(Math.PI / 2);
+    triR.rotateZ(Math.PI); // point down
+    const triW = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 3);
+    triW.rotateX(Math.PI / 2);
+    triW.rotateZ(Math.PI);
     geos = {
       pole: new THREE.CylinderGeometry(0.06, 0.07, 3.3, 10),
       housing: new THREE.BoxGeometry(0.34, 1.0, 0.3),
       lamp,
       octaW,
       octaR,
+      triR,
+      triW,
       signPole: new THREE.CylinderGeometry(0.04, 0.045, 2.2, 8),
     };
   }
@@ -80,10 +92,18 @@ class TrafficLightObject {
 class StopSignObject {
   readonly group = new THREE.Group();
 
-  constructor() {
+  constructor(kind: 'stop' | 'yield') {
     const g = getGeos();
     const pole = new THREE.Mesh(g.signPole, poleMat);
     pole.position.y = 1.1;
+    if (kind === 'yield') {
+      const red = new THREE.Mesh(g.triR, signRed);
+      red.position.set(0, 2.35, 0);
+      const white = new THREE.Mesh(g.triW, signYellowWhite);
+      white.position.set(0, 2.38, 0.012);
+      this.group.add(pole, red, white);
+      return;
+    }
     const white = new THREE.Mesh(g.octaW, signWhite);
     white.position.set(0, 2.35, 0);
     const red = new THREE.Mesh(g.octaR, signRed);
@@ -122,7 +142,7 @@ export class PropsRenderer {
       seenSigns.add(s.id);
       let obj = this.signs.get(s.id);
       if (!obj) {
-        obj = new StopSignObject();
+        obj = new StopSignObject(s.kind);
         this.signs.set(s.id, obj);
         this.group.add(obj.group);
       }

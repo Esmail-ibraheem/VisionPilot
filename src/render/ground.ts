@@ -112,7 +112,8 @@ export class LaneMarkings {
   private buildMarking(m: Marking, lanes: LaneGeometry): THREE.InstancedMesh {
     const segments: Array<{ p0: Marking['points'][number]; p1: Marking['points'][number]; len: number; heading: number }> = [];
     let total = 0;
-    for (let i = 0; i < m.points.length - 1; i++) {
+    const step = m.segments ? 2 : 1;
+    for (let i = 0; i < m.points.length - 1; i += step) {
       const p0 = m.points[i];
       const p1 = m.points[i + 1];
       const len = Math.hypot(p1.x - p0.x, p1.z - p0.z);
@@ -127,6 +128,7 @@ export class LaneMarkings {
     let travelled = 0;
     for (const s of segments) {
       const d = { x: (s.p1.x - s.p0.x) / s.len, z: (s.p1.z - s.p0.z) / s.len };
+      if (m.segments) travelled = 0; // independent segments: dashes start at each segment
       if (m.dashed) {
         // Dashes are anchored to the polyline start so they never slide.
         let k = Math.ceil((travelled - lanes.dashLength / 2) / lanes.dashPeriod);

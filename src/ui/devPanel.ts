@@ -1,6 +1,8 @@
 import type { CameraRig } from '../render/SceneRenderer';
 import type { CameraModel } from '../perception/projection';
 import type { VehicleStyle } from '../render/vehicles/buildVehicle';
+import type { WorldKind } from '../world/simulation';
+import type { VwControlMode, VwStats } from '../world/vw/vwWorld';
 
 export type AppMode = 'live' | 'reference' | 'perception';
 export type SourceKind = 'synthetic' | 'file' | 'webcam';
@@ -13,6 +15,11 @@ export interface DevPanelHandlers {
   setMode(mode: AppMode): void;
   setSource(kind: SourceKind): void;
   setVehicleStyle(style: VehicleStyle): void;
+  setWorld(world: WorldKind): void;
+  /** virtual-world actions */
+  vw(action: 'editor' | 'loadDefault' | 'loadBig' | 'saveBrain' | 'discardBrain' | 'nextGen'): void;
+  setVwMode(mode: VwControlMode): void;
+  setVwFlags(flags: { sensors: boolean; population: boolean; network: boolean }): void;
   fileChosen(file: File): void;
   onPerceptionChange(): void;
   togglePause(): void;
@@ -31,6 +38,9 @@ export interface DevPanelState {
   trajectory: boolean;
   source: SourceKind;
   cars: VehicleStyle;
+  world: WorldKind;
+  vwMode: VwControlMode;
+  vwFlags: { sensors: boolean; population: boolean; network: boolean };
 }
 
 const PERCEPTION_FIELDS: Array<{ key: keyof PerceptionParams; label: string; min: number; max: number; step: number }> = [
@@ -75,6 +85,21 @@ export class DevPanel {
     }
     for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="cars"]')) {
       radio.addEventListener('change', () => radio.checked && handlers.setVehicleStyle(radio.value as VehicleStyle));
+    }
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="world"]')) {
+      radio.addEventListener('change', () => radio.checked && handlers.setWorld(radio.value as WorldKind));
+    }
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="vwmode"]')) {
+      radio.addEventListener('change', () => radio.checked && handlers.setVwMode(radio.value as VwControlMode));
+    }
+    const vwButtons: Array<[string, Parameters<DevPanelHandlers['vw']>[0]]> = [
+      ['vw-open', 'editor'], ['vw-load-default', 'loadDefault'], ['vw-load-big', 'loadBig'],
+      ['vw-save-brain', 'saveBrain'], ['vw-discard-brain', 'discardBrain'], ['vw-next-gen', 'nextGen'],
+    ];
+    for (const [id, action] of vwButtons) document.getElementById(id)!.addEventListener('click', () => handlers.vw(action));
+    const flagInputs = ['vw-show-sensors', 'vw-show-population', 'vw-show-network'].map((id) => document.getElementById(id) as HTMLInputElement);
+    for (const input of flagInputs) {
+      input.addEventListener('change', () => handlers.setVwFlags({ sensors: flagInputs[0].checked, population: flagInputs[1].checked, network: flagInputs[2].checked }));
     }
     const fileInput = document.getElementById('dev-video-file') as HTMLInputElement;
     fileInput.addEventListener('change', () => {
@@ -151,6 +176,15 @@ export class DevPanel {
     for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="cars"]')) {
       radio.checked = radio.value === state.cars;
     }
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="world"]')) {
+      radio.checked = radio.value === state.world;
+    }
+    for (const radio of this.panel.querySelectorAll<HTMLInputElement>('input[name="vwmode"]')) {
+      radio.checked = radio.value === state.vwMode;
+    }
+    (document.getElementById('vw-show-sensors') as HTMLInputElement).checked = state.vwFlags.sensors;
+    (document.getElementById('vw-show-population') as HTMLInputElement).checked = state.vwFlags.population;
+    (document.getElementById('vw-show-network') as HTMLInputElement).checked = state.vwFlags.network;
     this.speedInput.value = String(state.speed);
     this.speedVal.textContent = `${state.speed.toFixed(2).replace(/\.?0+$/, '')}×`;
     this.trajectoryInput.checked = state.trajectory;
@@ -166,5 +200,12 @@ export class DevPanel {
 
   setPerceptionStats(text: string): void {
     this.perceptionStats.textContent = text;
+  }
+
+  setVwStats(st: VwStats | null): void {
+    const el = document.getElementById('vw-stats')!;
+    el.textContent = st
+      ? `generation ${st.generation} · ${st.alive}/${st.total} alive · best fitness ${st.bestFitness.toFixed(0)} · saved ${st.savedFitness.toFixed(0)}`
+      : 'virtual world not active';
   }
 }

@@ -4,6 +4,8 @@ import { VehicleObject, PALETTE, disposeVehicleTemplates, type VehicleStyle } fr
 import { PedestrianObject } from './pedestrian';
 import { LaneMarkings, PathRibbon, createGround } from './ground';
 import { PropsRenderer } from './props';
+import { BuildingsLayer } from './buildings';
+import { RaysLayer, TreesLayer } from './scenery';
 import { createGradientEnvironment } from './environment';
 import { toSceneHeading, toSceneX } from './frame';
 
@@ -53,6 +55,9 @@ export class SceneRenderer {
   private ego: VehicleObject;
   private lanes = new LaneMarkings();
   private props = new PropsRenderer();
+  private buildings = new BuildingsLayer();
+  private trees = new TreesLayer();
+  private rays = new RaysLayer();
   private ribbon = new PathRibbon();
   private fog: THREE.Fog;
   private envTexture: THREE.Texture;
@@ -95,6 +100,9 @@ export class SceneRenderer {
     this.scene.add(createGround(PALETTE.background));
     this.scene.add(this.lanes.group);
     this.scene.add(this.props.group);
+    this.scene.add(this.buildings.group);
+    this.scene.add(this.trees.group);
+    this.scene.add(this.rays.lines);
     this.scene.add(this.ribbon.mesh);
 
     this.ego = new VehicleObject('ego', this.vehicleStyle);
@@ -189,6 +197,9 @@ export class SceneRenderer {
 
     this.lanes.update(state.lanes);
     this.props.update(state.props);
+    this.buildings.update(state.mapId, state.buildings);
+    this.trees.update(state.mapId, state.trees);
+    this.rays.update(state.rays);
 
     const tr = state.trajectory;
     this.ribbon.mesh.visible = tr.visible;
@@ -231,6 +242,8 @@ export class SceneRenderer {
     this.pedestrians.clear();
     this.ego.dispose();
     this.lanes.dispose();
+    this.buildings.dispose();
+    this.trees.dispose();
     this.envTexture.dispose();
     disposeVehicleTemplates();
     this.renderer.dispose();
