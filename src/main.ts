@@ -593,8 +593,26 @@ class App {
     a.click();
   }
 
-  debug(): { sim: Simulation; renderer: () => SceneRenderer | null; perception: PerceptionMode; mode: () => AppMode; state: () => WorldState } {
-    return { sim: this.sim, renderer: () => this.renderer, perception: this.perception, mode: () => this.appMode, state: () => this.lastState };
+  debug(): { sim: Simulation; renderer: () => SceneRenderer | null; perception: PerceptionMode; mode: () => AppMode; state: () => WorldState; tick: (dt: number) => void } {
+    return {
+      sim: this.sim,
+      renderer: () => this.renderer,
+      perception: this.perception,
+      mode: () => this.appMode,
+      state: () => this.lastState,
+      // advance one deterministic frame (scripts/record.mjs drives the clip this way while paused)
+      tick: (dt) => {
+        if (!this.renderer) return;
+        const paused = this.sim.paused;
+        this.sim.paused = false;
+        this.sim.step(dt);
+        this.sim.paused = paused;
+        this.lastState = this.sim.state;
+        this.renderer.update(this.lastState);
+        this.renderer.render();
+        this.updateHud();
+      },
+    };
   }
 
   private showError(message: string, retryable: boolean): void {
